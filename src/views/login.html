@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <h1>POS Retail</h1>
+        <p>Silakan login untuk melanjutkan</p>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input 
+            type="text" 
+            id="username" 
+            name="username" 
+            placeholder="Masukkan username"
+            required
+            autocomplete="username"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Masukkan password"
+            required
+            autocomplete="current-password"
+          >
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">
+          Login
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <p>Default Login: <strong>admin</strong> / <strong>admin123</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/auth.js"></script>
+  <script>
+    const loginForm = document.getElementById('loginForm');
+    const errorMessage = document.getElementById('errorMessage');
+    const loginBtn = document.getElementById('loginBtn');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      // Validation
+      if (!username || !password) {
+        showError('Username dan password harus diisi');
+        return;
+      }
+
+      // Disable button while logging in
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Loading...';
+      hideError();
+
+      try {
+        const result = await window.api.auth.login(username, password);
+
+        if (result.success) {
+          // Save user to localStorage
+          localStorage.setItem('currentUser', JSON.stringify(result.user));
+          
+          // Redirect to dashboard
+          window.location.href = 'dashboard.html';
+        } else {
+          showError(result.message || 'Login gagal');
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Login';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        showError('Terjadi kesalahan saat login');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Login';
+      }
+    });
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+    }
+
+    function hideError() {
+      errorMessage.style.display = 'none';
+    }
+
+    // Clear any existing session on login page
+    localStorage.removeItem('currentUser');
+  </script>
+</body>
+</html>
