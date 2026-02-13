@@ -42,15 +42,25 @@ function setupLogoutButton() {
         'Apakah Anda yakin ingin logout?',
         async () => {
           try {
+            // Clear localStorage first
             localStorage.clear();
             sessionStorage.clear();
+            
+            console.log('Storage cleared');
+
+            // Call logout API
             await window.api.auth.logout();
+            
+            console.log('Logout successful');
+            
           } catch (error) {
             console.error('Logout error:', error);
-            localStorage.clear();
+            
+            // Force reload using IPC if available
             if (window.api && window.api.window) {
               window.api.window.loadLoginPage();
             } else {
+              // Fallback
               window.location.href = 'login.html';
             }
           }

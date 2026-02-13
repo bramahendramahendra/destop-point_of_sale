@@ -50,7 +50,7 @@
     </div>
   </div>
 
-  <script>
+    <script>
     console.log('Login page script loaded');
     
     // Clear storage
@@ -130,31 +130,13 @@
       errorMessage.style.display = 'none';
     }
 
-    // CRITICAL: Focus input setelah page load dengan delay lebih lama
-    function focusInput() {
+    // Auto focus setelah page load
+    setTimeout(() => {
       if (usernameInput) {
         usernameInput.focus();
         console.log('Username input focused');
       }
-    }
-
-    // Multiple attempts untuk focus
-    setTimeout(focusInput, 100);
-    setTimeout(focusInput, 300);
-    setTimeout(focusInput, 500);
-
-    // Listen to window focus event
-    window.addEventListener('focus', () => {
-      console.log('Window got focus');
-      setTimeout(focusInput, 50);
-    });
-
-    // Juga focus saat klik di mana saja di halaman
-    document.addEventListener('click', () => {
-      if (document.activeElement.tagName !== 'INPUT') {
-        focusInput();
-      }
-    });
+    }, 100);
   </script>
 </body>
 </html>

@@ -70,19 +70,6 @@ ipcMain.on('load-login-page', (event) => {
   console.log('Reloading login page...');
   if (mainWindow) {
     mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
-    
-    mainWindow.webContents.once('did-finish-load', () => {
-      console.log('Login page loaded, focusing window...');
-      mainWindow.focus();
-      mainWindow.show();
-      
-      setTimeout(() => {
-        mainWindow.blur();
-        setTimeout(() => {
-          mainWindow.focus();
-        }, 50);
-      }, 100);
-    });
   }
 });
 
@@ -125,23 +112,9 @@ ipcMain.handle('auth:logout', async (event) => {
     console.log('Logout user:', currentUser?.username);
     currentUser = null;
     
+    // Reload login page from main process
     if (mainWindow) {
       mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
-      
-      mainWindow.webContents.once('did-finish-load', () => {
-        console.log('Login page loaded after logout, focusing window...');
-        
-        mainWindow.focus();
-        mainWindow.show();
-        
-        setTimeout(() => {
-          mainWindow.blur();
-          setTimeout(() => {
-            mainWindow.focus();
-            console.log('Window focused and ready for input');
-          }, 50);
-        }, 100);
-      });
     }
     
     return { success: true };
