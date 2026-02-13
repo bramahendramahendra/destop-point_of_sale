@@ -14,7 +14,7 @@
         <p>Silakan login untuk melanjutkan</p>
       </div>
 
-      <form id="loginForm" class="login-form">
+      <form id="loginForm" class="login-form" autocomplete="off">
         <div class="form-group">
           <label for="username">Username</label>
           <input 
@@ -22,9 +22,7 @@
             id="username" 
             name="username" 
             placeholder="Masukkan username"
-            required
-            autocomplete="username"
-            autofocus
+            autocomplete="off"
           >
         </div>
 
@@ -35,8 +33,7 @@
             id="password" 
             name="password" 
             placeholder="Masukkan password"
-            required
-            autocomplete="current-password"
+            autocomplete="new-password"
           >
         </div>
 
@@ -54,50 +51,48 @@
   </div>
 
   <script>
-    // Clear any existing session on login page load
-    localStorage.removeItem('currentUser');
+    console.log('Login page script loaded');
+    
+    // Clear storage
+    localStorage.clear();
+    sessionStorage.clear();
 
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('Login page loaded');
+    const loginForm = document.getElementById('loginForm');
+    const errorMessage = document.getElementById('errorMessage');
+    const loginBtn = document.getElementById('loginBtn');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
 
-      const loginForm = document.getElementById('loginForm');
-      const errorMessage = document.getElementById('errorMessage');
-      const loginBtn = document.getElementById('loginBtn');
-      const usernameInput = document.getElementById('username');
-      const passwordInput = document.getElementById('password');
+    console.log('Form elements initialized');
 
-      // Make sure inputs are enabled
-      usernameInput.disabled = false;
-      passwordInput.disabled = false;
-      loginBtn.disabled = false;
+    // Force enable inputs
+    if (usernameInput) {
+      usernameInput.removeAttribute('disabled');
+      usernameInput.removeAttribute('readonly');
+    }
 
-      // Focus on username input
-      setTimeout(() => {
-        usernameInput.focus();
-      }, 100);
+    if (passwordInput) {
+      passwordInput.removeAttribute('disabled');
+      passwordInput.removeAttribute('readonly');
+    }
 
-      // Handle form submission
+    // Handle form submission
+    if (loginForm) {
       loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        e.stopPropagation();
 
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
 
-        console.log('Login attempt with username:', username);
+        console.log('Login attempt:', username);
 
-        // Validation
         if (!username || !password) {
           showError('Username dan password harus diisi');
           return;
         }
 
-        // Disable button while logging in
         loginBtn.disabled = true;
         loginBtn.textContent = 'Loading...';
-        usernameInput.disabled = true;
-        passwordInput.disabled = true;
         hideError();
 
         try {
@@ -105,54 +100,60 @@
 
           if (result.success) {
             console.log('Login successful');
-            // Save user to localStorage
             localStorage.setItem('currentUser', JSON.stringify(result.user));
-            
-            // Redirect to dashboard
             window.location.href = 'dashboard.html';
           } else {
             console.log('Login failed:', result.message);
             showError(result.message || 'Login gagal');
-            
-            // Re-enable inputs
             loginBtn.disabled = false;
             loginBtn.textContent = 'Login';
-            usernameInput.disabled = false;
-            passwordInput.disabled = false;
             passwordInput.value = '';
             usernameInput.focus();
           }
         } catch (error) {
           console.error('Login error:', error);
           showError('Terjadi kesalahan saat login');
-          
-          // Re-enable inputs
           loginBtn.disabled = false;
           loginBtn.textContent = 'Login';
-          usernameInput.disabled = false;
-          passwordInput.disabled = false;
           passwordInput.value = '';
           usernameInput.focus();
         }
       });
+    }
 
-      function showError(message) {
-        errorMessage.textContent = message;
-        errorMessage.style.display = 'block';
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+    }
+
+    function hideError() {
+      errorMessage.style.display = 'none';
+    }
+
+    // CRITICAL: Focus input setelah page load dengan delay lebih lama
+    function focusInput() {
+      if (usernameInput) {
+        usernameInput.focus();
+        console.log('Username input focused');
       }
+    }
 
-      function hideError() {
-        errorMessage.style.display = 'none';
+    // Multiple attempts untuk focus
+    setTimeout(focusInput, 100);
+    setTimeout(focusInput, 300);
+    setTimeout(focusInput, 500);
+
+    // Listen to window focus event
+    window.addEventListener('focus', () => {
+      console.log('Window got focus');
+      setTimeout(focusInput, 50);
+    });
+
+    // Juga focus saat klik di mana saja di halaman
+    document.addEventListener('click', () => {
+      if (document.activeElement.tagName !== 'INPUT') {
+        focusInput();
       }
-
-      // Test input functionality
-      usernameInput.addEventListener('input', function() {
-        console.log('Username input working:', this.value);
-      });
-
-      passwordInput.addEventListener('input', function() {
-        console.log('Password input working');
-      });
     });
   </script>
 </body>

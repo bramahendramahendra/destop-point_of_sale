@@ -65,33 +65,31 @@ function setupLogoutButton() {
 
       if (confirm('Apakah Anda yakin ingin logout?')) {
         try {
-          // Call logout API
-          await window.api.auth.logout();
-
-          // Clear localStorage
+          // Clear localStorage first
           localStorage.clear();
           sessionStorage.clear();
           
-          console.log('Logout successful, redirecting to login');
+          console.log('Storage cleared');
 
-          // Navigate to login page
-          window.location.href = 'login.html';
+          // Call logout API (main process akan reload login page dan focus window)
+          await window.api.auth.logout();
           
-          // Force reload after a short delay
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
+          console.log('Logout successful');
           
         } catch (error) {
           console.error('Logout error:', error);
           
-          // Force logout anyway
+          // Fallback jika error
           localStorage.clear();
           sessionStorage.clear();
-          window.location.href = 'login.html';
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
+          
+          // Try to use IPC to reload
+          if (window.api && window.api.window) {
+            window.api.window.loadLoginPage();
+          } else {
+            // Last resort fallback
+            window.location.href = 'login.html';
+          }
         }
       }
     });

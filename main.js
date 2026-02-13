@@ -25,6 +25,7 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.focus(); // Focus window saat pertama kali dibuka
   });
 
   // Open DevTools in development
@@ -61,6 +62,29 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+// IPC Handler: Load login page
+ipcMain.on('load-login-page', (event) => {
+  console.log('Reloading login page...');
+  if (mainWindow) {
+    mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
+    
+    // IMPORTANT: Focus window setelah load
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('Login page loaded, focusing window...');
+      mainWindow.focus();
+      mainWindow.show();
+      
+      // Extra: Blur dan focus lagi untuk memastikan
+      setTimeout(() => {
+        mainWindow.blur();
+        setTimeout(() => {
+          mainWindow.focus();
+        }, 50);
+      }, 100);
+    });
   }
 });
 
@@ -102,6 +126,30 @@ ipcMain.handle('auth:logout', async (event) => {
   try {
     console.log('Logout user:', currentUser?.username);
     currentUser = null;
+    
+    // Reload login page from main process
+    if (mainWindow) {
+      mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
+      
+      // CRITICAL FIX: Focus window setelah load login page
+      mainWindow.webContents.once('did-finish-load', () => {
+        console.log('Login page loaded after logout, focusing window...');
+        
+        // Focus window
+        mainWindow.focus();
+        mainWindow.show();
+        
+        // Extra trick: blur kemudian focus lagi
+        setTimeout(() => {
+          mainWindow.blur();
+          setTimeout(() => {
+            mainWindow.focus();
+            console.log('Window focused and ready for input');
+          }, 50);
+        }, 100);
+      });
+    }
+    
     return { success: true };
   } catch (error) {
     console.error('Logout error:', error);

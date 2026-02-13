@@ -5,5 +5,8 @@ contextBridge.exposeInMainWorld('api', {
     login: (username, password) => ipcRenderer.invoke('auth:login', username, password),
     logout: () => ipcRenderer.invoke('auth:logout'),
     getCurrentUser: () => ipcRenderer.invoke('auth:getCurrentUser')
+  },
+  window: {
+    loadLoginPage: () => ipcRenderer.send('load-login-page')
   }
 });
