@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Pengguna - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <h2>POS Retail</h2>
+    </div>
+    <div class="navbar-user">
+      <span class="user-info">
+        <strong id="userName">Loading...</strong>
+        <span class="user-role" id="userRole"></span>
+      </span>
+      <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <ul class="sidebar-menu">
+        <li class="menu-item">
+          <a href="dashboard.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-text">Dashboard</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#kasir">
+            <span class="menu-icon">🛒</span>
+            <span class="menu-text">Kasir</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#produk">
+            <span class="menu-icon">📦</span>
+            <span class="menu-text">Produk</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#transaksi">
+            <span class="menu-icon">💳</span>
+            <span class="menu-text">Transaksi</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#keuangan">
+            <span class="menu-icon">💰</span>
+            <span class="menu-text">Keuangan</span>
+          </a>
+        </li>
+        <li class="menu-item active" id="menuPengguna">
+          <a href="users.html">
+            <span class="menu-icon">👥</span>
+            <span class="menu-text">Pengguna</span>
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Manajemen Pengguna</h1>
+        <button class="btn btn-primary" id="btnAddUser">
+          <span>➕</span> Tambah User Baru
+        </button>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-container">
+        <div class="search-box">
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="🔍 Cari username atau nama..."
+            class="search-input"
+          >
+        </div>
+        <div class="filter-group">
+          <select id="filterRole" class="filter-select">
+            <option value="">Semua Role</option>
+            <option value="owner">Owner</option>
+            <option value="admin">Admin</option>
+            <option value="kasir">Kasir</option>
+          </select>
+          <select id="filterStatus" class="filter-select">
+            <option value="">Semua Status</option>
+            <option value="1">Aktif</option>
+            <option value="0">Nonaktif</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Users Table -->
+      <div class="table-container">
+        <table class="data-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Nama Lengkap</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Dibuat</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="6" class="text-center">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Add/Edit User -->
+  <div id="userModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Tambah User Baru</h2>
+        <button class="modal-close" id="closeModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm">
+          <input type="hidden" id="userId">
+          
+          <div class="form-group">
+            <label for="username">Username <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="username" 
+              name="username" 
+              placeholder="Masukkan username"
+              required
+            >
+            <small class="form-text">Username harus unik</small>
+          </div>
+
+          <div class="form-group">
+            <label for="fullName">Nama Lengkap <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="fullName" 
+              name="fullName" 
+              placeholder="Masukkan nama lengkap"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="role">Role <span class="required">*</span></label>
+            <select id="role" name="role" required>
+              <option value="">Pilih Role</option>
+              <option value="owner">Owner</option>
+              <option value="admin">Admin</option>
+              <option value="kasir">Kasir</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password <span class="required" id="passwordRequired">*</span></label>
+            <input 
+              type="password" 
+              id="password" 
+              name="password" 
+              placeholder="Minimal 8 karakter"
+            >
+            <small class="form-text" id="passwordHint">Minimal 8 karakter</small>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Konfirmasi Password <span class="required" id="confirmPasswordRequired">*</span></label>
+            <input 
+              type="password" 
+              id="confirmPassword" 
+              name="confirmPassword" 
+              placeholder="Ulangi password"
+            >
+          </div>
+
+          <div id="formError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancel">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmit">
+              <span id="btnSubmitText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Delete Confirmation -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>Konfirmasi Hapus</h2>
+        <button class="modal-close" id="closeDeleteModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="deleteMessage">Yakin ingin menghapus user ini?</p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelDelete">Batal</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDelete">Ya, Hapus</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/users.js"></script>
+</body>
+</html>

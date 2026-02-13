@@ -25,7 +25,7 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    mainWindow.focus(); // Focus window saat pertama kali dibuka
+    mainWindow.focus();
   });
 
   // Open DevTools in development
@@ -71,13 +71,11 @@ ipcMain.on('load-login-page', (event) => {
   if (mainWindow) {
     mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
     
-    // IMPORTANT: Focus window setelah load
     mainWindow.webContents.once('did-finish-load', () => {
       console.log('Login page loaded, focusing window...');
       mainWindow.focus();
       mainWindow.show();
       
-      // Extra: Blur dan focus lagi untuk memastikan
       setTimeout(() => {
         mainWindow.blur();
         setTimeout(() => {
@@ -88,12 +86,14 @@ ipcMain.on('load-login-page', (event) => {
   }
 });
 
-// IPC Handlers for Authentication
+// ============================================
+// AUTHENTICATION IPC HANDLERS
+// ============================================
+
 ipcMain.handle('auth:login', async (event, username, password) => {
   try {
     console.log('Login attempt for username:', username);
 
-    // Get user from database
     const user = dbModule.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [username]);
 
     if (!user) {
@@ -101,7 +101,6 @@ ipcMain.handle('auth:login', async (event, username, password) => {
       return { success: false, message: 'Username atau password salah' };
     }
 
-    // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
@@ -109,7 +108,6 @@ ipcMain.handle('auth:login', async (event, username, password) => {
       return { success: false, message: 'Username atau password salah' };
     }
 
-    // Remove password from user object
     delete user.password;
     currentUser = user;
 
@@ -127,19 +125,15 @@ ipcMain.handle('auth:logout', async (event) => {
     console.log('Logout user:', currentUser?.username);
     currentUser = null;
     
-    // Reload login page from main process
     if (mainWindow) {
       mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
       
-      // CRITICAL FIX: Focus window setelah load login page
       mainWindow.webContents.once('did-finish-load', () => {
         console.log('Login page loaded after logout, focusing window...');
         
-        // Focus window
         mainWindow.focus();
         mainWindow.show();
         
-        // Extra trick: blur kemudian focus lagi
         setTimeout(() => {
           mainWindow.blur();
           setTimeout(() => {
@@ -159,4 +153,165 @@ ipcMain.handle('auth:logout', async (event) => {
 
 ipcMain.handle('auth:getCurrentUser', async (event) => {
   return currentUser;
+});
+
+// ============================================
+// USERS MANAGEMENT IPC HANDLERS
+// ============================================
+
+// Get all users
+ipcMain.handle('users:getAll', async (event) => {
+  try {
+    const users = dbModule.all(
+      'SELECT id, username, full_name, role, is_active, created_at, updated_at FROM users ORDER BY created_at DESC'
+    );
+    
+    return { success: true, users };
+  } catch (error) {
+    console.error('Get all users error:', error);
+    return { success: false, message: 'Gagal memuat data user' };
+  }
+});
+
+// Get user by ID
+ipcMain.handle('users:getById', async (event, id) => {
+  try {
+    const user = dbModule.get(
+      'SELECT id, username, full_name, role, is_active, created_at FROM users WHERE id = ?',
+      [id]
+    );
+    
+    if (!user) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+    
+    return { success: true, user };
+  } catch (error) {
+    console.error('Get user by ID error:', error);
+    return { success: false, message: 'Gagal memuat data user' };
+  }
+});
+
+// Create new user
+ipcMain.handle('users:create', async (event, userData) => {
+  try {
+    console.log('Creating new user:', userData.username);
+
+    // Check if username already exists
+    const existingUser = dbModule.get('SELECT id FROM users WHERE username = ?', [userData.username]);
+    
+    if (existingUser) {
+      return { success: false, message: 'Username sudah digunakan' };
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    // Insert user
+    const result = dbModule.run(
+      `INSERT INTO users (username, password, full_name, role, is_active) 
+       VALUES (?, ?, ?, ?, 1)`,
+      [userData.username, hashedPassword, userData.full_name, userData.role]
+    );
+
+    console.log('User created successfully:', userData.username);
+    return { success: true, userId: result.lastInsertRowid };
+
+  } catch (error) {
+    console.error('Create user error:', error);
+    return { success: false, message: 'Gagal menambahkan user' };
+  }
+});
+
+// Update user
+ipcMain.handle('users:update', async (event, id, userData) => {
+  try {
+    console.log('Updating user:', id);
+
+    // Check if username already exists (except current user)
+    const existingUser = dbModule.get(
+      'SELECT id FROM users WHERE username = ? AND id != ?',
+      [userData.username, id]
+    );
+    
+    if (existingUser) {
+      return { success: false, message: 'Username sudah digunakan' };
+    }
+
+    // Update user
+    if (userData.password) {
+      // Update with new password
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      
+      dbModule.run(
+        `UPDATE users 
+         SET username = ?, password = ?, full_name = ?, role = ?, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ?`,
+        [userData.username, hashedPassword, userData.full_name, userData.role, id]
+      );
+    } else {
+      // Update without changing password
+      dbModule.run(
+        `UPDATE users 
+         SET username = ?, full_name = ?, role = ?, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ?`,
+        [userData.username, userData.full_name, userData.role, id]
+      );
+    }
+
+    console.log('User updated successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Update user error:', error);
+    return { success: false, message: 'Gagal mengupdate user' };
+  }
+});
+
+// Delete user
+ipcMain.handle('users:delete', async (event, id) => {
+  try {
+    console.log('Deleting user:', id);
+
+    // Don't allow deleting current user
+    if (currentUser && currentUser.id === id) {
+      return { success: false, message: 'Tidak dapat menghapus akun yang sedang login' };
+    }
+
+    dbModule.run('DELETE FROM users WHERE id = ?', [id]);
+
+    console.log('User deleted successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return { success: false, message: 'Gagal menghapus user' };
+  }
+});
+
+// Toggle user status
+ipcMain.handle('users:toggleStatus', async (event, id) => {
+  try {
+    console.log('Toggling user status:', id);
+
+    // Don't allow toggling own status
+    if (currentUser && currentUser.id === id) {
+      return { success: false, message: 'Tidak dapat mengubah status akun sendiri' };
+    }
+
+    dbModule.run(
+      `UPDATE users 
+       SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [id]
+    );
+
+    console.log('User status toggled successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Toggle user status error:', error);
+    return { success: false, message: 'Gagal mengubah status user' };
+  }
 });

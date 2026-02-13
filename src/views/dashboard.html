@@ -55,8 +55,8 @@
             <span class="menu-text">Keuangan</span>
           </a>
         </li>
-        <li class="menu-item disabled">
-          <a href="#pengguna">
+        <li class="menu-item" id="menuPengguna">
+          <a href="users.html">
             <span class="menu-icon">👥</span>
             <span class="menu-text">Pengguna</span>
           </a>
@@ -77,7 +77,7 @@
           <p><strong>Status Development:</strong></p>
           <ul>
             <li>✅ STEP 1: Login & Dashboard Basic - <strong>DONE</strong></li>
-            <li>⏳ STEP 2: User Management - Coming Soon</li>
+            <li>✅ STEP 2: User Management - <strong>DONE</strong></li>
             <li>⏳ STEP 3: Product Management - Coming Soon</li>
             <li>⏳ STEP 4: Cashier/Transaction - Coming Soon</li>
             <li>⏳ STEP 5: Finance - Coming Soon</li>
@@ -128,5 +128,17 @@
   </div>
 
   <script src="../js/dashboard.js"></script>
+  <script>
+    // Hide menu Pengguna untuk role kasir
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(localStorage.getItem('currentUser'));
+      if (user && user.role === 'kasir') {
+        const menuPengguna = document.getElementById('menuPengguna');
+        if (menuPengguna) {
+          menuPengguna.style.display = 'none';
+        }
+      }
+    });
+  </script>
 </body>
 </html>

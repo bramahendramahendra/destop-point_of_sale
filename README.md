@@ -55,7 +55,7 @@ Gunakan kredensial berikut untuk login pertama kali:
 ### 🚧 Status Development
 
 - ✅ **STEP 1: Login & Dashboard Basic** - DONE
-- ⏳ STEP 2: User Management - Coming Soon
+- ✅ **STEP 2: User Management** - DONE
 - ⏳ STEP 3: Product Management - Coming Soon
 - ⏳ STEP 4: Cashier/Transaction - Coming Soon
 - ⏳ STEP 5: Finance - Coming Soon
@@ -75,6 +75,29 @@ Lakukan testing dengan langkah berikut:
 8. ✅ Klik tombol "Logout" → kembali ke login page
 9. ✅ Coba login dengan password salah → muncul error message
 10. ✅ File database `pos-retail.db` terbuat di root folder
+
+## Testing Step 2
+
+1. ✅ Login sebagai admin (admin/admin123)
+2. ✅ Klik menu "Pengguna" di sidebar
+3. ✅ Harus tampil halaman users dengan tabel (hanya ada user admin)
+4. ✅ Klik "Tambah User Baru"
+5. ✅ Isi form:
+   - Username: kasir01
+   - Nama Lengkap: Kasir Satu
+   - Role: Kasir
+   - Password: kasir123
+   - Konfirmasi Password: kasir123
+6. ✅ Klik "Simpan" → user baru muncul di tabel
+7. ✅ Klik edit user kasir01 → form terisi otomatis
+8. ✅ Ubah nama menjadi "Kasir Pertama", klik "Update" → perubahan tersimpan
+9. ✅ Toggle status user → status berubah di tabel (badge hijau/merah)
+10. ✅ Klik hapus user → muncul konfirmasi → user terhapus
+11. ✅ Tambah user baru dengan role admin
+12. ✅ Logout, login dengan user baru yang dibuat
+13. ✅ Cek apakah menu "Pengguna" muncul sesuai role
+14. ✅ Login sebagai kasir → menu "Pengguna" tidak muncul
+15. ✅ Coba akses langsung users.html sebagai kasir → redirect ke dashboard
 
 ## Struktur Folder
 ```
