@@ -136,6 +136,11 @@ body {
   max-width: 400px;
 }
 
+/* Modal Large */
+.modal-large {
+  max-width: 800px;
+}
+
 .modal-header {
   padding: 20px 25px;
   border-bottom: 1px solid #ecf0f1;
@@ -223,6 +228,66 @@ body {
   margin-bottom: 20px;
 }
 
+/* ========================================
+   TABS STYLES
+   ======================================== */
+
+.tabs-container {
+  background: white;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.tab-button {
+  padding: 15px 30px;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #7f8c8d;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  top: 2px;
+}
+
+.tab-button:hover {
+  color: #3498db;
+  background-color: #f8f9fa;
+}
+
+.tab-button.active {
+  color: #3498db;
+  border-bottom-color: #3498db;
+  background-color: white;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.tab-header {
+  background: white;
+  padding: 20px;
+  border-radius: 0 0 8px 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: flex;
+  justify-content: flex-end;
+}
+
 .form-group {
   margin-bottom: 20px;
 }
@@ -277,10 +342,53 @@ body {
   color: #7f8c8d;
 }
 
+/* ========================================
+   FORM LAYOUTS
+   ======================================== */
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 0;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input-group input {
+  flex: 1;
+}
+
+.input-group .btn {
+  white-space: nowrap;
+}
+
+.readonly-input {
+  background-color: #f8f9fa !important;
+  cursor: not-allowed;
+}
+
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dfe6e9;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
 .required {
   color: #e74c3c;
 }
-
 
 .error-message {
   background-color: #fee;
@@ -557,6 +665,12 @@ body {
 .badge-danger {
   background-color: #f8d7da;
   color: #e74c3c;
+}
+
+/* Badge Warning */
+.badge-warning {
+  background-color: #fff3cd;
+  color: #856404;
 }
 
 .badge-role {
@@ -837,6 +951,16 @@ body {
   border-top: 1px solid #ecf0f1;
 }
 
+/* Code style for barcode */
+code {
+  background-color: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #e74c3c;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar {
@@ -875,5 +999,17 @@ body {
 
   .action-buttons {
     flex-direction: column;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .tabs {
+    overflow-x: auto;
+  }
+  
+  .tab-button {
+    flex-shrink: 0;
   }
 }

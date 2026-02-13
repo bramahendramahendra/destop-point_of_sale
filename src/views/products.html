@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Produk - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <h2>POS Retail</h2>
+    </div>
+    <div class="navbar-user">
+      <span class="user-info">
+        <strong id="userName">Loading...</strong>
+        <span class="user-role" id="userRole"></span>
+      </span>
+      <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <ul class="sidebar-menu">
+        <li class="menu-item">
+          <a href="dashboard.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-text">Dashboard</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#kasir">
+            <span class="menu-icon">🛒</span>
+            <span class="menu-text">Kasir</span>
+          </a>
+        </li>
+        <li class="menu-item active">
+          <a href="products.html">
+            <span class="menu-icon">📦</span>
+            <span class="menu-text">Produk</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#transaksi">
+            <span class="menu-icon">💳</span>
+            <span class="menu-text">Transaksi</span>
+          </a>
+        </li>
+        <li class="menu-item disabled">
+          <a href="#keuangan">
+            <span class="menu-icon">💰</span>
+            <span class="menu-text">Keuangan</span>
+          </a>
+        </li>
+        <li class="menu-item" id="menuPengguna">
+          <a href="users.html">
+            <span class="menu-icon">👥</span>
+            <span class="menu-text">Pengguna</span>
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Manajemen Produk</h1>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button active" data-tab="products">Produk</button>
+          <button class="tab-button" data-tab="categories">Kategori</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Products -->
+      <div id="products-tab" class="tab-content active">
+        <div class="tab-header">
+          <button class="btn btn-primary" id="btnAddProduct">
+            <span>➕</span> Tambah Produk
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-container">
+          <div class="search-box">
+            <input 
+              type="text" 
+              id="searchProduct" 
+              placeholder="🔍 Cari nama produk atau barcode..."
+              class="search-input"
+            >
+          </div>
+          <div class="filter-group">
+            <select id="filterCategory" class="filter-select">
+              <option value="">Semua Kategori</option>
+            </select>
+            <select id="filterProductStatus" class="filter-select">
+              <option value="">Semua Status</option>
+              <option value="1">Aktif</option>
+              <option value="0">Nonaktif</option>
+              <option value="low_stock">Stok Menipis</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Products Table -->
+        <div class="table-container">
+          <table class="data-table" id="productsTable">
+            <thead>
+              <tr>
+                <th>Barcode</th>
+                <th>Nama Produk</th>
+                <th>Kategori</th>
+                <th>Harga Beli</th>
+                <th>Harga Jual</th>
+                <th>Margin %</th>
+                <th>Stok</th>
+                <th>Satuan</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              <tr>
+                <td colspan="10" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab Content: Categories -->
+      <div id="categories-tab" class="tab-content">
+        <div class="tab-header">
+          <button class="btn btn-primary" id="btnAddCategory">
+            <span>➕</span> Tambah Kategori
+          </button>
+        </div>
+
+        <!-- Categories Table -->
+        <div class="table-container">
+          <table class="data-table" id="categoriesTable">
+            <thead>
+              <tr>
+                <th>Nama Kategori</th>
+                <th>Deskripsi</th>
+                <th>Jumlah Produk</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="categoriesTableBody">
+              <tr>
+                <td colspan="4" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Add/Edit Product -->
+  <div id="productModal" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2 id="productModalTitle">Tambah Produk</h2>
+        <button class="modal-close" id="closeProductModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="productForm">
+          <input type="hidden" id="productId">
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="barcode">Barcode <span class="required">*</span></label>
+              <div class="input-group">
+                <input 
+                  type="text" 
+                  id="barcode" 
+                  placeholder="PROD-xxxxx"
+                  required
+                >
+                <button type="button" class="btn btn-secondary btn-sm" id="btnGenerateBarcode">
+                  Generate
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="productName">Nama Produk <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="productName" 
+                placeholder="Masukkan nama produk"
+                required
+              >
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="productCategory">Kategori</label>
+              <select id="productCategory">
+                <option value="">Pilih Kategori</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="unit">Satuan <span class="required">*</span></label>
+              <select id="unit" required>
+                <option value="pcs">Pcs</option>
+                <option value="box">Box</option>
+                <option value="pack">Pack</option>
+                <option value="botol">Botol</option>
+                <option value="sachet">Sachet</option>
+                <option value="kg">Kg</option>
+                <option value="liter">Liter</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="purchasePrice">Harga Beli <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="purchasePrice" 
+                placeholder="0"
+                min="0"
+                step="100"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="sellingPrice">Harga Jual <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="sellingPrice" 
+                placeholder="0"
+                min="0"
+                step="100"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label>Margin</label>
+              <input 
+                type="text" 
+                id="marginDisplay" 
+                placeholder="0%"
+                readonly
+                class="readonly-input"
+              >
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="stock">Stok Awal <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="stock" 
+                placeholder="0"
+                min="0"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="minStock">Stok Minimum <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="minStock" 
+                placeholder="5"
+                min="1"
+                value="5"
+                required
+              >
+              <small class="form-text">Notifikasi jika stok di bawah nilai ini</small>
+            </div>
+          </div>
+
+          <div id="productFormError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelProduct">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitProduct">
+              <span id="btnSubmitProductText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Category -->
+  <div id="categoryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="categoryModalTitle">Tambah Kategori</h2>
+        <button class="modal-close" id="closeCategoryModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="categoryForm">
+          <input type="hidden" id="categoryId">
+          
+          <div class="form-group">
+            <label for="categoryName">Nama Kategori <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="categoryName" 
+              placeholder="Masukkan nama kategori"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="categoryDescription">Deskripsi</label>
+            <textarea 
+              id="categoryDescription" 
+              placeholder="Deskripsi kategori (opsional)"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div id="categoryFormError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelCategory">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitCategory">
+              <span id="btnSubmitCategoryText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/products.js"></script>
+</body>
+</html>

@@ -56,7 +56,7 @@ Gunakan kredensial berikut untuk login pertama kali:
 
 - ✅ **STEP 1: Login & Dashboard Basic** - DONE
 - ✅ **STEP 2: User Management** - DONE
-- ⏳ STEP 3: Product Management - Coming Soon
+- ✅ **STEP 3: Category & Product Management** - DONE
 - ⏳ STEP 4: Cashier/Transaction - Coming Soon
 - ⏳ STEP 5: Finance - Coming Soon
 - ⏳ STEP 6: Reports - Coming Soon
@@ -98,6 +98,31 @@ Lakukan testing dengan langkah berikut:
 13. ✅ Cek apakah menu "Pengguna" muncul sesuai role
 14. ✅ Login sebagai kasir → menu "Pengguna" tidak muncul
 15. ✅ Coba akses langsung users.html sebagai kasir → redirect ke dashboard
+
+## Testing Step 3
+
+1. ✅ Restart aplikasi (untuk init database baru)
+2. ✅ Login dengan admin/admin123
+3. ✅ Klik menu "Produk" di sidebar
+4. ✅ Harus tampil tab "Produk" dan "Kategori"
+5. ✅ Tab Kategori: Lihat 5 kategori sample
+6. ✅ Tab Produk: Lihat 15 produk sample
+7. ✅ Klik "Tambah Kategori" → Isi form → Simpan → Kategori baru muncul
+8. ✅ Edit kategori → Update → Perubahan tersimpan
+9. ✅ Hapus kategori yang tidak punya produk → Berhasil
+10. ✅ Coba hapus kategori yang punya produk → Muncul error
+11. ✅ Klik "Tambah Produk" → Isi form manual
+12. ✅ Klik "Generate" barcode → Barcode otomatis terisi
+13. ✅ Isi harga beli & jual → Margin % otomatis terhitung
+14. ✅ Coba isi harga jual < harga beli → Muncul error validasi
+15. ✅ Simpan produk → Produk baru muncul di tabel
+16. ✅ Edit produk → Update → Perubahan tersimpan
+17. ✅ Toggle status produk → Status berubah
+18. ✅ Hapus produk → Konfirmasi → Produk terhapus
+19. ✅ Search produk by nama/barcode → Filter berfungsi
+20. ✅ Filter by kategori → Hanya produk kategori itu yang muncul
+21. ✅ Filter "Stok Menipis" → Hanya produk dengan stok < min_stock
+22. ✅ Lihat badge stok: merah (habis), kuning (menipis), hijau (aman)
 
 ## Struktur Folder
 ```

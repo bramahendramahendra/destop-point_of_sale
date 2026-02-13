@@ -288,3 +288,282 @@ ipcMain.handle('users:toggleStatus', async (event, id) => {
     return { success: false, message: 'Gagal mengubah status user' };
   }
 });
+
+// ============================================
+// CATEGORIES MANAGEMENT IPC HANDLERS
+// ============================================
+
+// Get all categories
+ipcMain.handle('categories:getAll', async (event) => {
+  try {
+    const categories = dbModule.all(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count
+      FROM categories c 
+      ORDER BY c.name
+    `);
+    
+    return { success: true, categories };
+  } catch (error) {
+    console.error('Get all categories error:', error);
+    return { success: false, message: 'Gagal memuat data kategori' };
+  }
+});
+
+// Get category by ID
+ipcMain.handle('categories:getById', async (event, id) => {
+  try {
+    const category = dbModule.get('SELECT * FROM categories WHERE id = ?', [id]);
+    
+    if (!category) {
+      return { success: false, message: 'Kategori tidak ditemukan' };
+    }
+    
+    return { success: true, category };
+  } catch (error) {
+    console.error('Get category by ID error:', error);
+    return { success: false, message: 'Gagal memuat data kategori' };
+  }
+});
+
+// Create new category
+ipcMain.handle('categories:create', async (event, categoryData) => {
+  try {
+    console.log('Creating new category:', categoryData.name);
+
+    const result = dbModule.run(
+      'INSERT INTO categories (name, description) VALUES (?, ?)',
+      [categoryData.name, categoryData.description || null]
+    );
+
+    console.log('Category created successfully:', categoryData.name);
+    return { success: true, categoryId: result.lastInsertRowid };
+
+  } catch (error) {
+    console.error('Create category error:', error);
+    return { success: false, message: 'Gagal menambahkan kategori' };
+  }
+});
+
+// Update category
+ipcMain.handle('categories:update', async (event, id, categoryData) => {
+  try {
+    console.log('Updating category:', id);
+
+    dbModule.run(
+      'UPDATE categories SET name = ?, description = ? WHERE id = ?',
+      [categoryData.name, categoryData.description || null, id]
+    );
+
+    console.log('Category updated successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Update category error:', error);
+    return { success: false, message: 'Gagal mengupdate kategori' };
+  }
+});
+
+// Delete category
+ipcMain.handle('categories:delete', async (event, id) => {
+  try {
+    console.log('Deleting category:', id);
+
+    // Check if category has products
+    const productCount = dbModule.get(
+      'SELECT COUNT(*) as count FROM products WHERE category_id = ?',
+      [id]
+    );
+
+    if (productCount.count > 0) {
+      return { 
+        success: false, 
+        message: `Tidak dapat menghapus kategori. Masih ada ${productCount.count} produk dalam kategori ini.` 
+      };
+    }
+
+    dbModule.run('DELETE FROM categories WHERE id = ?', [id]);
+
+    console.log('Category deleted successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Delete category error:', error);
+    return { success: false, message: 'Gagal menghapus kategori' };
+  }
+});
+
+// ============================================
+// PRODUCTS MANAGEMENT IPC HANDLERS
+// ============================================
+
+// Get all products with category name
+ipcMain.handle('products:getAll', async (event) => {
+  try {
+    const products = dbModule.all(`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.name
+    `);
+    
+    return { success: true, products };
+  } catch (error) {
+    console.error('Get all products error:', error);
+    return { success: false, message: 'Gagal memuat data produk' };
+  }
+});
+
+// Get product by ID
+ipcMain.handle('products:getById', async (event, id) => {
+  try {
+    const product = dbModule.get(`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.id = ?
+    `, [id]);
+    
+    if (!product) {
+      return { success: false, message: 'Produk tidak ditemukan' };
+    }
+    
+    return { success: true, product };
+  } catch (error) {
+    console.error('Get product by ID error:', error);
+    return { success: false, message: 'Gagal memuat data produk' };
+  }
+});
+
+// Get product by barcode
+ipcMain.handle('products:getByBarcode', async (event, barcode) => {
+  try {
+    const product = dbModule.get(`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.barcode = ?
+    `, [barcode]);
+    
+    return { success: true, product: product || null };
+  } catch (error) {
+    console.error('Get product by barcode error:', error);
+    return { success: false, message: 'Gagal memuat data produk' };
+  }
+});
+
+// Create new product
+ipcMain.handle('products:create', async (event, productData) => {
+  try {
+    console.log('Creating new product:', productData.name);
+
+    // Check if barcode already exists
+    const existingProduct = dbModule.get('SELECT id FROM products WHERE barcode = ?', [productData.barcode]);
+    
+    if (existingProduct) {
+      return { success: false, message: 'Barcode sudah digunakan' };
+    }
+
+    const result = dbModule.run(
+      `INSERT INTO products (barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [
+        productData.barcode,
+        productData.name,
+        productData.category_id || null,
+        productData.purchase_price,
+        productData.selling_price,
+        productData.stock || 0,
+        productData.min_stock || 5,
+        productData.unit || 'pcs'
+      ]
+    );
+
+    console.log('Product created successfully:', productData.name);
+    return { success: true, productId: result.lastInsertRowid };
+
+  } catch (error) {
+    console.error('Create product error:', error);
+    return { success: false, message: 'Gagal menambahkan produk' };
+  }
+});
+
+// Update product
+ipcMain.handle('products:update', async (event, id, productData) => {
+  try {
+    console.log('Updating product:', id);
+
+    // Check if barcode already exists (except current product)
+    const existingProduct = dbModule.get(
+      'SELECT id FROM products WHERE barcode = ? AND id != ?',
+      [productData.barcode, id]
+    );
+    
+    if (existingProduct) {
+      return { success: false, message: 'Barcode sudah digunakan' };
+    }
+
+    dbModule.run(
+      `UPDATE products 
+       SET barcode = ?, name = ?, category_id = ?, purchase_price = ?, selling_price = ?, 
+           stock = ?, min_stock = ?, unit = ?, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [
+        productData.barcode,
+        productData.name,
+        productData.category_id || null,
+        productData.purchase_price,
+        productData.selling_price,
+        productData.stock,
+        productData.min_stock,
+        productData.unit,
+        id
+      ]
+    );
+
+    console.log('Product updated successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Update product error:', error);
+    return { success: false, message: 'Gagal mengupdate produk' };
+  }
+});
+
+// Delete product
+ipcMain.handle('products:delete', async (event, id) => {
+  try {
+    console.log('Deleting product:', id);
+
+    dbModule.run('DELETE FROM products WHERE id = ?', [id]);
+
+    console.log('Product deleted successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Delete product error:', error);
+    return { success: false, message: 'Gagal menghapus produk' };
+  }
+});
+
+// Toggle product status
+ipcMain.handle('products:toggleStatus', async (event, id) => {
+  try {
+    console.log('Toggling product status:', id);
+
+    dbModule.run(
+      `UPDATE products 
+       SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [id]
+    );
+
+    console.log('Product status toggled successfully:', id);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Toggle product status error:', error);
+    return { success: false, message: 'Gagal mengubah status produk' };
+  }
+});

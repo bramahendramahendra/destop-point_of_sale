@@ -208,3 +208,34 @@ function formatCurrency(amount) {
     minimumFractionDigits: 0
   }).format(amount);
 }
+
+// ============================================
+// PRODUCT & FINANCE HELPER FUNCTIONS
+// ============================================
+
+// Generate barcode dengan timestamp
+function generateBarcode() {
+  const timestamp = Date.now();
+  return `PROD-${timestamp}`;
+}
+
+// Calculate margin percentage
+function calculateMargin(purchasePrice, sellingPrice) {
+  if (!purchasePrice || purchasePrice === 0) return 0;
+  const margin = ((sellingPrice - purchasePrice) / purchasePrice) * 100;
+  return Math.round(margin * 100) / 100; // 2 decimal places
+}
+
+// Format currency to IDR
+function formatCurrency(amount) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0
+  }).format(amount);
+}
+
+// Format number with thousand separator
+function formatNumber(number) {
+  return new Intl.NumberFormat('id-ID').format(number);
+}
