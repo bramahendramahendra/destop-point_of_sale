@@ -8,61 +8,11 @@
 </head>
 <body class="dashboard-page">
   <!-- Navbar -->
-  <nav class="navbar">
-    <div class="navbar-brand">
-      <h2>POS Retail</h2>
-    </div>
-    <div class="navbar-user">
-      <span class="user-info">
-        <strong id="userName">Loading...</strong>
-        <span class="user-role" id="userRole"></span>
-      </span>
-      <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
-    </div>
-  </nav>
+  <nav class="navbar"></nav>
 
   <div class="dashboard-container">
     <!-- Sidebar -->
-    <aside class="sidebar">
-      <ul class="sidebar-menu">
-        <li class="menu-item">
-          <a href="dashboard.html">
-            <span class="menu-icon">📊</span>
-            <span class="menu-text">Dashboard</span>
-          </a>
-        </li>
-        <li class="menu-item disabled">
-          <a href="#kasir">
-            <span class="menu-icon">🛒</span>
-            <span class="menu-text">Kasir</span>
-          </a>
-        </li>
-        <li class="menu-item disabled">
-          <a href="#produk">
-            <span class="menu-icon">📦</span>
-            <span class="menu-text">Produk</span>
-          </a>
-        </li>
-        <li class="menu-item disabled">
-          <a href="#transaksi">
-            <span class="menu-icon">💳</span>
-            <span class="menu-text">Transaksi</span>
-          </a>
-        </li>
-        <li class="menu-item disabled">
-          <a href="#keuangan">
-            <span class="menu-icon">💰</span>
-            <span class="menu-text">Keuangan</span>
-          </a>
-        </li>
-        <li class="menu-item active" id="menuPengguna">
-          <a href="users.html">
-            <span class="menu-icon">👥</span>
-            <span class="menu-text">Pengguna</span>
-          </a>
-        </li>
-      </ul>
-    </aside>
+    <aside class="sidebar"></aside>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -200,6 +150,7 @@
   </div>
 
   <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
   <script src="../js/users.js"></script>
 </body>
 </html>

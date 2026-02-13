@@ -9,29 +9,13 @@ let editingCategoryId = null;
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Products page loaded');
 
-  // Get current user
-  currentUser = getCurrentUser();
-  if (!currentUser) {
-    console.log('No user found, redirecting to login');
-    window.location.href = 'login.html';
+  // Initialize page layout (navbar + menu)
+  if (!initializePageLayout('products')) {
     return;
   }
 
-  console.log('Current user:', currentUser);
-
-  // Display user info
-  displayUserInfo(currentUser);
-
-  // Setup logout button
-  setupLogoutButton();
-
-  // Hide menu based on role
-  if (currentUser.role === 'kasir') {
-    const menuPengguna = document.getElementById('menuPengguna');
-    if (menuPengguna) {
-      menuPengguna.style.display = 'none';
-    }
-  }
+  // Get current user
+  currentUser = getCurrentUser();
 
   // Load data
   await loadCategories();

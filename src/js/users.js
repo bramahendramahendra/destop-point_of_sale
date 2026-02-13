@@ -7,13 +7,13 @@ let editingUserId = null;
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Users page loaded');
 
-  // Get current user
-  currentUser = getCurrentUser();
-  if (!currentUser) {
-    console.log('No user found, redirecting to login');
-    window.location.href = 'login.html';
+  // Initialize page layout (navbar + menu)
+  if (!initializePageLayout('pengguna')) {
     return;
   }
+
+  // Get current user
+  currentUser = getCurrentUser();
 
   // Check role - only owner and admin can access
   if (currentUser.role === 'kasir') {
@@ -22,22 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.location.href = 'dashboard.html';
     }, 1500);
     return;
-  }
-
-  console.log('Current user:', currentUser);
-
-  // Display user info in navbar
-  displayUserInfo(currentUser);
-
-  // Setup logout button
-  setupLogoutButton();
-
-  // Hide menu Pengguna untuk role kasir (tidak perlu, tapi just in case)
-  if (currentUser.role === 'kasir') {
-    const menuPengguna = document.getElementById('menuPengguna');
-    if (menuPengguna) {
-      menuPengguna.style.display = 'none';
-    }
   }
 
   // Load users
