@@ -59,7 +59,8 @@ function setupLogoutButton() {
   const logoutBtn = document.getElementById('logoutBtn');
 
   if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
+    logoutBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
       console.log('Logout button clicked');
 
       if (confirm('Apakah Anda yakin ingin logout?')) {
@@ -68,13 +69,29 @@ function setupLogoutButton() {
           await window.api.auth.logout();
 
           // Clear localStorage
-          localStorage.removeItem('currentUser');
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          console.log('Logout successful, redirecting to login');
 
-          // Redirect to login
+          // Navigate to login page
           window.location.href = 'login.html';
+          
+          // Force reload after a short delay
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+          
         } catch (error) {
           console.error('Logout error:', error);
-          alert('Terjadi kesalahan saat logout');
+          
+          // Force logout anyway
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = 'login.html';
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
         }
       }
     });

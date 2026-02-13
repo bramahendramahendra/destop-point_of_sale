@@ -141,6 +141,24 @@ body {
   border-color: #3498db;
 }
 
+/* Fix untuk input yang ter-disable */
+.form-group input:disabled {
+  background-color: #f0f0f0;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-group input:not(:disabled) {
+  background-color: white;
+  cursor: text;
+}
+
+/* Pastikan input bisa diklik */
+.form-group input {
+  pointer-events: auto !important;
+  user-select: text !important;
+}
+
 .error-message {
   background-color: #fee;
   color: #c0392b;

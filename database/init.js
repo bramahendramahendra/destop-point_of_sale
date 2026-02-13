@@ -1,7 +1,12 @@
-const { db, run, get } = require('./db');
+const { initDb, run, get } = require('./db');
 const bcrypt = require('bcryptjs');
 
-function initDatabase() {
+async function initDatabase() {
+  console.log('Initializing database...');
+
+  // Initialize database connection
+  await initDb();
+
   console.log('Creating tables...');
 
   // Create users table

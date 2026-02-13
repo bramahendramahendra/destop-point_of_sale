@@ -1,11 +1,13 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { initDatabase } = require('./database/init');
-const db = require('./database/db');
 const bcrypt = require('bcryptjs');
 
 let mainWindow;
 let currentUser = null;
+
+// Import database functions
+const dbModule = require('./database/db');
+const { initDatabase } = require('./database/init');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -16,7 +18,6 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, 'assets/icon.png'),
     show: false
   });
 
@@ -37,10 +38,17 @@ function createWindow() {
 }
 
 // Initialize database when app is ready
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   console.log('Initializing database...');
-  initDatabase();
-  console.log('Database initialized successfully');
+  
+  try {
+    await dbModule.initDb();
+    await initDatabase();
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+  }
+  
   createWindow();
 
   app.on('activate', () => {
@@ -62,7 +70,7 @@ ipcMain.handle('auth:login', async (event, username, password) => {
     console.log('Login attempt for username:', username);
 
     // Get user from database
-    const user = db.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [username]);
+    const user = dbModule.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [username]);
 
     if (!user) {
       console.log('User not found or inactive');

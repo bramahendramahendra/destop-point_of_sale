@@ -1,20 +1,50 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
+const fs = require('fs');
 const path = require('path');
 
-// Create database connection
 const dbPath = path.join(__dirname, '..', 'pos-retail.db');
-console.log('Database path:', dbPath);
+let db = null;
 
-const db = new Database(dbPath, { verbose: console.log });
+// Initialize database
+async function initDb() {
+  if (db) return db;
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
+  const SQL = await initSqlJs();
+
+  // Load existing database or create new one
+  if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(buffer);
+    console.log('Database loaded from file');
+  } else {
+    db = new SQL.Database();
+    console.log('New database created');
+  }
+
+  return db;
+}
+
+// Save database to file
+function saveDb() {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+    console.log('Database saved');
+  }
+}
 
 // Helper functions
 const query = (sql, params = []) => {
   try {
     const stmt = db.prepare(sql);
-    return stmt.all(params);
+    stmt.bind(params);
+    const result = [];
+    while (stmt.step()) {
+      result.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return result;
   } catch (error) {
     console.error('Query error:', error);
     throw error;
@@ -23,8 +53,9 @@ const query = (sql, params = []) => {
 
 const run = (sql, params = []) => {
   try {
-    const stmt = db.prepare(sql);
-    return stmt.run(params);
+    db.run(sql, params);
+    saveDb(); // Auto-save after write operations
+    return { changes: db.getRowsModified() };
   } catch (error) {
     console.error('Run error:', error);
     throw error;
@@ -34,7 +65,13 @@ const run = (sql, params = []) => {
 const get = (sql, params = []) => {
   try {
     const stmt = db.prepare(sql);
-    return stmt.get(params);
+    stmt.bind(params);
+    let result = null;
+    if (stmt.step()) {
+      result = stmt.getAsObject();
+    }
+    stmt.free();
+    return result;
   } catch (error) {
     console.error('Get error:', error);
     throw error;
@@ -42,17 +79,12 @@ const get = (sql, params = []) => {
 };
 
 const all = (sql, params = []) => {
-  try {
-    const stmt = db.prepare(sql);
-    return stmt.all(params);
-  } catch (error) {
-    console.error('All error:', error);
-    throw error;
-  }
+  return query(sql, params);
 };
 
 module.exports = {
-  db,
+  initDb,
+  saveDb,
   query,
   run,
   get,
