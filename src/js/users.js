@@ -32,67 +32,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Setup logout button
   setupLogoutButton();
 
+  // Hide menu Pengguna untuk role kasir (tidak perlu, tapi just in case)
+  if (currentUser.role === 'kasir') {
+    const menuPengguna = document.getElementById('menuPengguna');
+    if (menuPengguna) {
+      menuPengguna.style.display = 'none';
+    }
+  }
+
   // Load users
   await loadUsers();
 
   // Setup event listeners
   setupEventListeners();
 });
-
-function getCurrentUser() {
-  const userStr = localStorage.getItem('currentUser');
-  if (userStr) {
-    try {
-      return JSON.parse(userStr);
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      return null;
-    }
-  }
-  return null;
-}
-
-function displayUserInfo(user) {
-  const userNameElement = document.getElementById('userName');
-  const userRoleElement = document.getElementById('userRole');
-
-  if (userNameElement) {
-    userNameElement.textContent = user.full_name;
-  }
-
-  if (userRoleElement) {
-    userRoleElement.textContent = `(${user.role})`;
-  }
-}
-
-function setupLogoutButton() {
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      
-      showConfirm(
-        'Konfirmasi Logout',
-        'Apakah Anda yakin ingin logout?',
-        async () => {
-          try {
-            localStorage.clear();
-            sessionStorage.clear();
-            await window.api.auth.logout();
-          } catch (error) {
-            console.error('Logout error:', error);
-            localStorage.clear();
-            if (window.api && window.api.window) {
-              window.api.window.loadLoginPage();
-            } else {
-              window.location.href = 'login.html';
-            }
-          }
-        }
-      );
-    });
-  }
-}
 
 // Load all users
 async function loadUsers() {
@@ -148,7 +101,7 @@ function renderUsersTable(users) {
         </button>
         <button 
           class="btn-icon btn-delete" 
-          onclick="confirmDelete(${user.id}, '${escapeHtml(user.full_name)}')"
+          onclick="confirmDeleteUser(${user.id}, '${escapeHtml(user.full_name)}')"
           title="Hapus"
           ${user.id === currentUser.id ? 'disabled' : ''}
         >
@@ -290,6 +243,21 @@ async function handleFormSubmit(e) {
     return;
   }
 
+  // Show confirmation modal before saving
+  const actionText = editingUserId ? 'mengupdate' : 'menambahkan';
+  const confirmMessage = `Yakin ingin ${actionText} user "${formData.full_name}"?`;
+  
+  showConfirm(
+    'Konfirmasi Simpan',
+    confirmMessage,
+    async () => {
+      await saveUser(formData);
+    }
+  );
+}
+
+// Save user (dipanggil setelah konfirmasi)
+async function saveUser(formData) {
   // Disable submit button
   const btnSubmit = document.getElementById('btnSubmit');
   const btnSubmitText = document.getElementById('btnSubmitText');
@@ -398,52 +366,39 @@ async function toggleUserStatus(userId, currentStatus) {
   }
 }
 
-// Confirm delete
-let deleteUserId = null;
-
-function confirmDelete(userId, userName) {
+// Confirm delete (menggunakan modal konfirmasi dari utils)
+function confirmDeleteUser(userId, userName) {
   // Don't allow delete own account
   if (userId === currentUser.id) {
     showToast('Tidak dapat menghapus akun sendiri', 'error');
     return;
   }
 
-  deleteUserId = userId;
-  document.getElementById('deleteMessage').textContent = 
-    `Yakin ingin menghapus user "${userName}"?`;
-  document.getElementById('deleteModal').style.display = 'flex';
+  showConfirm(
+    'Konfirmasi Hapus',
+    `Yakin ingin menghapus user "${userName}"?`,
+    async () => {
+      await deleteUser(userId);
+    }
+  );
 }
 
-// Close delete modal
-function closeDeleteModal() {
-  document.getElementById('deleteModal').style.display = 'none';
-  deleteUserId = null;
-}
-
-// Confirm delete button
-document.addEventListener('DOMContentLoaded', () => {
-  const btnConfirmDelete = document.getElementById('btnConfirmDelete');
-  if (btnConfirmDelete) {
-    btnConfirmDelete.addEventListener('click', async () => {
-      if (!deleteUserId) return;
-
-      try {
-        const result = await window.api.users.delete(deleteUserId);
-        
-        if (result.success) {
-          closeDeleteModal();
-          await loadUsers();
-          showToast('User berhasil dihapus', 'success');
-        } else {
-          showToast(result.message || 'Gagal menghapus user', 'error');
-        }
-      } catch (error) {
-        console.error('Delete user error:', error);
-        showToast('Terjadi kesalahan', 'error');
-      }
-    });
+// Delete user (dipanggil setelah konfirmasi)
+async function deleteUser(userId) {
+  try {
+    const result = await window.api.users.delete(userId);
+    
+    if (result.success) {
+      await loadUsers();
+      showToast('User berhasil dihapus', 'success');
+    } else {
+      showToast(result.message || 'Gagal menghapus user', 'error');
+    }
+  } catch (error) {
+    console.error('Delete user error:', error);
+    showToast('Terjadi kesalahan', 'error');
   }
-});
+}
 
 // Handle search
 function handleSearch(e) {
@@ -478,123 +433,6 @@ function handleFilter() {
   }
 
   renderUsersTable(filtered);
-}
-
-// ============================================
-// CUSTOM TOAST & CONFIRM FUNCTIONS
-// ============================================
-
-function showToast(message, type = 'info') {
-  // Remove existing toasts
-  const existingToasts = document.querySelectorAll('.toast');
-  existingToasts.forEach(toast => toast.remove());
-
-  // Create toast
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  
-  const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
-  
-  toast.innerHTML = `
-    <div class="toast-icon">${icon}</div>
-    <div class="toast-content">
-      <p class="toast-message">${message}</p>
-    </div>
-    <button class="toast-close">×</button>
-  `;
-
-  document.body.appendChild(toast);
-
-  // Close button
-  toast.querySelector('.toast-close').addEventListener('click', () => {
-    removeToast(toast);
-  });
-
-  // Auto close after 3 seconds
-  setTimeout(() => {
-    removeToast(toast);
-  }, 3000);
-}
-
-function removeToast(toast) {
-  toast.classList.add('hiding');
-  setTimeout(() => {
-    toast.remove();
-  }, 300);
-}
-
-function showConfirm(title, message, onConfirm, onCancel = null) {
-  // Remove existing confirms
-  const existing = document.querySelectorAll('.confirm-overlay');
-  existing.forEach(el => el.remove());
-
-  // Create confirm overlay
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.style.display = 'flex';
-  
-  overlay.innerHTML = `
-    <div class="confirm-dialog">
-      <div class="confirm-header">
-        <h3>${title}</h3>
-      </div>
-      <div class="confirm-body">
-        <p class="confirm-message">${message}</p>
-      </div>
-      <div class="confirm-footer">
-        <button class="btn btn-secondary confirm-cancel">Batal</button>
-        <button class="btn btn-primary confirm-ok">Ya</button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  // Focus on OK button
-  setTimeout(() => {
-    overlay.querySelector('.confirm-ok').focus();
-  }, 100);
-
-  // Handle buttons
-  overlay.querySelector('.confirm-cancel').addEventListener('click', () => {
-    overlay.remove();
-    if (onCancel) onCancel();
-  });
-
-  overlay.querySelector('.confirm-ok').addEventListener('click', () => {
-    overlay.remove();
-    if (onConfirm) onConfirm();
-  });
-
-  // Close on overlay click
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      overlay.remove();
-      if (onCancel) onCancel();
-    }
-  });
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const options = { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  };
-  return date.toLocaleDateString('id-ID', options);
 }
 
 function showFormError(message) {
