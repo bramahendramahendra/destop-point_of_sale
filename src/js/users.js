@@ -17,8 +17,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Check role - only owner and admin can access
   if (currentUser.role === 'kasir') {
-    alert('Anda tidak memiliki akses ke halaman ini');
-    window.location.href = 'dashboard.html';
+    showToast('Anda tidak memiliki akses ke halaman ini', 'error');
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 1500);
     return;
   }
 
@@ -68,21 +70,26 @@ function setupLogoutButton() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
-      if (confirm('Apakah Anda yakin ingin logout?')) {
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-          await window.api.auth.logout();
-        } catch (error) {
-          console.error('Logout error:', error);
-          localStorage.clear();
-          if (window.api && window.api.window) {
-            window.api.window.loadLoginPage();
-          } else {
-            window.location.href = 'login.html';
+      
+      showConfirm(
+        'Konfirmasi Logout',
+        'Apakah Anda yakin ingin logout?',
+        async () => {
+          try {
+            localStorage.clear();
+            sessionStorage.clear();
+            await window.api.auth.logout();
+          } catch (error) {
+            console.error('Logout error:', error);
+            localStorage.clear();
+            if (window.api && window.api.window) {
+              window.api.window.loadLoginPage();
+            } else {
+              window.location.href = 'login.html';
+            }
           }
         }
-      }
+      );
     });
   }
 }
@@ -96,11 +103,11 @@ async function loadUsers() {
       allUsers = result.users;
       renderUsersTable(allUsers);
     } else {
-      showError('Gagal memuat data user');
+      showToast('Gagal memuat data user', 'error');
     }
   } catch (error) {
     console.error('Load users error:', error);
-    showError('Terjadi kesalahan saat memuat data');
+    showToast('Terjadi kesalahan saat memuat data', 'error');
   }
 }
 
@@ -208,9 +215,10 @@ function openAddModal() {
   
   document.getElementById('userModal').style.display = 'flex';
   
-  // Focus username
+  // Focus username with delay
   setTimeout(() => {
-    document.getElementById('username').focus();
+    const usernameInput = document.getElementById('username');
+    usernameInput.focus();
   }, 100);
 }
 
@@ -242,12 +250,17 @@ async function editUser(userId) {
       document.getElementById('formError').style.display = 'none';
       
       document.getElementById('userModal').style.display = 'flex';
+      
+      // Focus username with delay
+      setTimeout(() => {
+        document.getElementById('username').focus();
+      }, 100);
     } else {
-      showError('Gagal memuat data user');
+      showToast('Gagal memuat data user', 'error');
     }
   } catch (error) {
     console.error('Edit user error:', error);
-    showError('Terjadi kesalahan');
+    showToast('Terjadi kesalahan', 'error');
   }
 }
 
@@ -299,14 +312,18 @@ async function handleFormSubmit(e) {
     if (result.success) {
       closeUserModal();
       await loadUsers();
-      showSuccess(editingUserId ? 'User berhasil diupdate' : 'User berhasil ditambahkan');
+      showToast(
+        editingUserId ? 'User berhasil diupdate' : 'User berhasil ditambahkan',
+        'success'
+      );
     } else {
       showFormError(result.message || 'Gagal menyimpan user');
+      btnSubmit.disabled = false;
+      btnSubmitText.textContent = originalText;
     }
   } catch (error) {
     console.error('Save user error:', error);
     showFormError('Terjadi kesalahan saat menyimpan');
-  } finally {
     btnSubmit.disabled = false;
     btnSubmitText.textContent = originalText;
   }
@@ -359,7 +376,7 @@ function validateUserForm(formData, isEdit) {
 async function toggleUserStatus(userId, currentStatus) {
   // Don't allow toggle own status
   if (userId === currentUser.id) {
-    showError('Tidak dapat mengubah status akun sendiri');
+    showToast('Tidak dapat mengubah status akun sendiri', 'error');
     return;
   }
 
@@ -368,13 +385,16 @@ async function toggleUserStatus(userId, currentStatus) {
     
     if (result.success) {
       await loadUsers();
-      showSuccess(`User berhasil ${currentStatus ? 'dinonaktifkan' : 'diaktifkan'}`);
+      showToast(
+        `User berhasil ${currentStatus ? 'dinonaktifkan' : 'diaktifkan'}`,
+        'success'
+      );
     } else {
-      showError('Gagal mengubah status user');
+      showToast('Gagal mengubah status user', 'error');
     }
   } catch (error) {
     console.error('Toggle status error:', error);
-    showError('Terjadi kesalahan');
+    showToast('Terjadi kesalahan', 'error');
   }
 }
 
@@ -384,7 +404,7 @@ let deleteUserId = null;
 function confirmDelete(userId, userName) {
   // Don't allow delete own account
   if (userId === currentUser.id) {
-    showError('Tidak dapat menghapus akun sendiri');
+    showToast('Tidak dapat menghapus akun sendiri', 'error');
     return;
   }
 
@@ -413,13 +433,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result.success) {
           closeDeleteModal();
           await loadUsers();
-          showSuccess('User berhasil dihapus');
+          showToast('User berhasil dihapus', 'success');
         } else {
-          showError(result.message || 'Gagal menghapus user');
+          showToast(result.message || 'Gagal menghapus user', 'error');
         }
       } catch (error) {
         console.error('Delete user error:', error);
-        showError('Terjadi kesalahan');
+        showToast('Terjadi kesalahan', 'error');
       }
     });
   }
@@ -460,7 +480,105 @@ function handleFilter() {
   renderUsersTable(filtered);
 }
 
-// Utility functions
+// ============================================
+// CUSTOM TOAST & CONFIRM FUNCTIONS
+// ============================================
+
+function showToast(message, type = 'info') {
+  // Remove existing toasts
+  const existingToasts = document.querySelectorAll('.toast');
+  existingToasts.forEach(toast => toast.remove());
+
+  // Create toast
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  
+  const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+  
+  toast.innerHTML = `
+    <div class="toast-icon">${icon}</div>
+    <div class="toast-content">
+      <p class="toast-message">${message}</p>
+    </div>
+    <button class="toast-close">×</button>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Close button
+  toast.querySelector('.toast-close').addEventListener('click', () => {
+    removeToast(toast);
+  });
+
+  // Auto close after 3 seconds
+  setTimeout(() => {
+    removeToast(toast);
+  }, 3000);
+}
+
+function removeToast(toast) {
+  toast.classList.add('hiding');
+  setTimeout(() => {
+    toast.remove();
+  }, 300);
+}
+
+function showConfirm(title, message, onConfirm, onCancel = null) {
+  // Remove existing confirms
+  const existing = document.querySelectorAll('.confirm-overlay');
+  existing.forEach(el => el.remove());
+
+  // Create confirm overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.style.display = 'flex';
+  
+  overlay.innerHTML = `
+    <div class="confirm-dialog">
+      <div class="confirm-header">
+        <h3>${title}</h3>
+      </div>
+      <div class="confirm-body">
+        <p class="confirm-message">${message}</p>
+      </div>
+      <div class="confirm-footer">
+        <button class="btn btn-secondary confirm-cancel">Batal</button>
+        <button class="btn btn-primary confirm-ok">Ya</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Focus on OK button
+  setTimeout(() => {
+    overlay.querySelector('.confirm-ok').focus();
+  }, 100);
+
+  // Handle buttons
+  overlay.querySelector('.confirm-cancel').addEventListener('click', () => {
+    overlay.remove();
+    if (onCancel) onCancel();
+  });
+
+  overlay.querySelector('.confirm-ok').addEventListener('click', () => {
+    overlay.remove();
+    if (onConfirm) onConfirm();
+  });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      if (onCancel) onCancel();
+    }
+  });
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -483,12 +601,4 @@ function showFormError(message) {
   const errorDiv = document.getElementById('formError');
   errorDiv.textContent = message;
   errorDiv.style.display = 'block';
-}
-
-function showError(message) {
-  alert('Error: ' + message);
-}
-
-function showSuccess(message) {
-  alert('Success: ' + message);
 }
