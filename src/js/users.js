@@ -24,12 +24,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Load users
-  await loadUsers();
-
-  // Setup event listeners
+  // Setup event listeners FIRST (before loading data)
   setupEventListeners();
+
+  // Load users AFTER event listeners ready
+  await loadUsers();
 });
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+
+function setupEventListeners() {
+  // Add user button
+  const btnAddUser = document.getElementById('btnAddUser');
+  if (btnAddUser) {
+    btnAddUser.addEventListener('click', openAddModal);
+  }
+
+  // Close modal buttons
+  const closeModal = document.getElementById('closeModal');
+  if (closeModal) {
+    closeModal.addEventListener('click', closeUserModal);
+  }
+
+  const btnCancel = document.getElementById('btnCancel');
+  if (btnCancel) {
+    btnCancel.addEventListener('click', closeUserModal);
+  }
+
+  // Form submit
+  const userForm = document.getElementById('userForm');
+  if (userForm) {
+    userForm.addEventListener('submit', handleFormSubmit);
+  }
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', handleSearch);
+  }
+
+  // Filters
+  const filterRole = document.getElementById('filterRole');
+  if (filterRole) {
+    filterRole.addEventListener('change', handleFilter);
+  }
+
+  const filterStatus = document.getElementById('filterStatus');
+  if (filterStatus) {
+    filterStatus.addEventListener('change', handleFilter);
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (e) => {
+    const userModal = document.getElementById('userModal');
+    if (e.target === userModal) {
+      closeUserModal();
+    }
+  });
+}
 
 // Load all users
 async function loadUsers() {
@@ -51,6 +105,11 @@ async function loadUsers() {
 // Render users table
 function renderUsersTable(users) {
   const tbody = document.getElementById('usersTableBody');
+  
+  if (!tbody) {
+    console.error('usersTableBody element not found');
+    return;
+  }
   
   if (users.length === 0) {
     tbody.innerHTML = `
@@ -96,48 +155,11 @@ function renderUsersTable(users) {
   `).join('');
 }
 
-// Setup event listeners
-function setupEventListeners() {
-  // Add user button
-  document.getElementById('btnAddUser').addEventListener('click', openAddModal);
-
-  // Close modal buttons
-  document.getElementById('closeModal').addEventListener('click', closeUserModal);
-  document.getElementById('btnCancel').addEventListener('click', closeUserModal);
-  
-  // Close delete modal
-  document.getElementById('closeDeleteModal').addEventListener('click', closeDeleteModal);
-  document.getElementById('btnCancelDelete').addEventListener('click', closeDeleteModal);
-
-  // Form submit
-  document.getElementById('userForm').addEventListener('submit', handleFormSubmit);
-
-  // Search
-  document.getElementById('searchInput').addEventListener('input', handleSearch);
-
-  // Filters
-  document.getElementById('filterRole').addEventListener('change', handleFilter);
-  document.getElementById('filterStatus').addEventListener('change', handleFilter);
-
-  // Close modal when clicking outside
-  window.addEventListener('click', (e) => {
-    const userModal = document.getElementById('userModal');
-    const deleteModal = document.getElementById('deleteModal');
-    
-    if (e.target === userModal) {
-      closeUserModal();
-    }
-    if (e.target === deleteModal) {
-      closeDeleteModal();
-    }
-  });
-}
-
 // Open add user modal
 function openAddModal() {
   editingUserId = null;
+  
   document.getElementById('modalTitle').textContent = 'Tambah User Baru';
-  document.getElementById('userId').value = '';
   document.getElementById('userForm').reset();
   
   // Password required for new user
@@ -152,10 +174,8 @@ function openAddModal() {
   
   document.getElementById('userModal').style.display = 'flex';
   
-  // Focus username with delay
   setTimeout(() => {
-    const usernameInput = document.getElementById('username');
-    usernameInput.focus();
+    document.getElementById('username').focus();
   }, 100);
 }
 
@@ -188,7 +208,6 @@ async function editUser(userId) {
       
       document.getElementById('userModal').style.display = 'flex';
       
-      // Focus username with delay
       setTimeout(() => {
         document.getElementById('username').focus();
       }, 100);
@@ -227,13 +246,11 @@ async function handleFormSubmit(e) {
     return;
   }
 
-  // Show confirmation modal before saving
   const actionText = editingUserId ? 'mengupdate' : 'menambahkan';
-  const confirmMessage = `Yakin ingin ${actionText} user "${formData.full_name}"?`;
   
   showConfirm(
     'Konfirmasi Simpan',
-    confirmMessage,
+    `Yakin ingin ${actionText} user "${formData.full_name}"?`,
     async () => {
       await saveUser(formData);
     }
@@ -242,7 +259,6 @@ async function handleFormSubmit(e) {
 
 // Save user (dipanggil setelah konfirmasi)
 async function saveUser(formData) {
-  // Disable submit button
   const btnSubmit = document.getElementById('btnSubmit');
   const btnSubmitText = document.getElementById('btnSubmitText');
   const originalText = btnSubmitText.textContent;
@@ -254,10 +270,8 @@ async function saveUser(formData) {
     let result;
     
     if (editingUserId) {
-      // Update user
       result = await window.api.users.update(editingUserId, formData);
     } else {
-      // Create new user
       result = await window.api.users.create(formData);
     }
 
@@ -421,6 +435,8 @@ function handleFilter() {
 
 function showFormError(message) {
   const errorDiv = document.getElementById('formError');
-  errorDiv.textContent = message;
-  errorDiv.style.display = 'block';
+  if (errorDiv) {
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+  }
 }

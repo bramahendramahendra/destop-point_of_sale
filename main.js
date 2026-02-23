@@ -601,99 +601,97 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
   try {
     console.log('Creating transaction:', transactionData.transaction_code);
 
-    // Start transaction
-    dbModule.db.exec('BEGIN TRANSACTION');
+    // Check if transaction code already exists
+    const existingTransaction = dbModule.get(
+      'SELECT id FROM transactions WHERE transaction_code = ?',
+      [transactionData.transaction_code]
+    );
 
-    try {
-      // 1. Insert transaction
-      const transactionResult = dbModule.run(
-        `INSERT INTO transactions (
-          transaction_code, user_id, transaction_date, subtotal, 
-          discount_type, discount_value, discount_amount, 
-          tax_percent, tax_amount, total_amount, 
-          payment_method, payment_amount, change_amount, 
-          customer_name, notes, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    if (existingTransaction) {
+      return { success: false, message: 'Kode transaksi sudah ada' };
+    }
+
+    // 1. Insert transaction
+    const transactionResult = dbModule.run(
+      `INSERT INTO transactions (
+        transaction_code, user_id, transaction_date, subtotal, 
+        discount_type, discount_value, discount_amount, 
+        tax_percent, tax_amount, total_amount, 
+        payment_method, payment_amount, change_amount, 
+        customer_name, notes, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        transactionData.transaction_code,
+        transactionData.user_id,
+        transactionData.transaction_date,
+        transactionData.subtotal,
+        transactionData.discount_type,
+        transactionData.discount_value,
+        transactionData.discount_amount,
+        transactionData.tax_percent,
+        transactionData.tax_amount,
+        transactionData.total_amount,
+        transactionData.payment_method,
+        transactionData.payment_amount,
+        transactionData.change_amount,
+        transactionData.customer_name || null,
+        transactionData.notes || null,
+        'completed'
+      ]
+    );
+
+    const transactionId = transactionResult.lastInsertRowid;
+
+    // 2. Insert transaction items and update stock
+    for (const item of transactionData.items) {
+      // Insert transaction item
+      dbModule.run(
+        `INSERT INTO transaction_items (
+          transaction_id, product_id, product_name, barcode, 
+          quantity, unit, price, subtotal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          transactionData.transaction_code,
-          transactionData.user_id,
-          transactionData.transaction_date,
-          transactionData.subtotal,
-          transactionData.discount_type,
-          transactionData.discount_value,
-          transactionData.discount_amount,
-          transactionData.tax_percent,
-          transactionData.tax_amount,
-          transactionData.total_amount,
-          transactionData.payment_method,
-          transactionData.payment_amount,
-          transactionData.change_amount,
-          transactionData.customer_name || null,
-          transactionData.notes || null,
-          'completed'
+          transactionId,
+          item.product_id,
+          item.product_name,
+          item.barcode,
+          item.quantity,
+          item.unit,
+          item.price,
+          item.subtotal
         ]
       );
 
-      const transactionId = transactionResult.lastInsertRowid;
+      // Update product stock
+      dbModule.run(
+        'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [item.quantity, item.product_id]
+      );
 
-      // 2. Insert transaction items
-      transactionData.items.forEach(item => {
-        dbModule.run(
-          `INSERT INTO transaction_items (
-            transaction_id, product_id, product_name, barcode, 
-            quantity, unit, price, subtotal
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            transactionId,
-            item.product_id,
-            item.product_name,
-            item.barcode,
-            item.quantity,
-            item.unit,
-            item.price,
-            item.subtotal
-          ]
-        );
-
-        // 3. Update product stock
-        dbModule.run(
-          'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [item.quantity, item.product_id]
-        );
-
-        // 4. Create stock mutation
-        dbModule.run(
-          `INSERT INTO stock_mutations (
-            product_id, mutation_type, quantity, reference_type, reference_id, 
-            notes, user_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            item.product_id,
-            'out',
-            item.quantity,
-            'sale',
-            transactionId,
-            `Penjualan ${transactionData.transaction_code}`,
-            transactionData.user_id
-          ]
-        );
-      });
-
-      // Commit transaction
-      dbModule.db.exec('COMMIT');
-
-      console.log('Transaction created successfully:', transactionData.transaction_code);
-      return { success: true, transactionId };
-
-    } catch (error) {
-      // Rollback on error
-      dbModule.db.exec('ROLLBACK');
-      throw error;
+      // Create stock mutation
+      dbModule.run(
+        `INSERT INTO stock_mutations (
+          product_id, mutation_type, quantity, reference_type, reference_id, 
+          notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item.product_id,
+          'out',
+          item.quantity,
+          'sale',
+          transactionId,
+          `Penjualan ${transactionData.transaction_code}`,
+          transactionData.user_id
+        ]
+      );
     }
+
+    console.log('Transaction created successfully:', transactionData.transaction_code);
+    return { success: true, transactionId };
 
   } catch (error) {
     console.error('Create transaction error:', error);
-    return { success: false, message: 'Gagal menyimpan transaksi' };
+    return { success: false, message: 'Gagal menyimpan transaksi: ' + error.message };
   }
 });
 
@@ -812,56 +810,44 @@ ipcMain.handle('transactions:void', async (event, id) => {
     // Get transaction items
     const items = dbModule.all('SELECT * FROM transaction_items WHERE transaction_id = ?', [id]);
 
-    // Start transaction
-    dbModule.db.exec('BEGIN TRANSACTION');
+    // 1. Update transaction status
+    dbModule.run(
+      'UPDATE transactions SET status = ? WHERE id = ?',
+      ['void', id]
+    );
 
-    try {
-      // 1. Update transaction status
+    // 2. Restore stock for each item
+    for (const item of items) {
+      // Restore stock
       dbModule.run(
-        'UPDATE transactions SET status = ? WHERE id = ?',
-        ['void', id]
+        'UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [item.quantity, item.product_id]
       );
 
-      // 2. Restore stock for each item
-      items.forEach(item => {
-        dbModule.run(
-          'UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [item.quantity, item.product_id]
-        );
-
-        // 3. Create stock mutation
-        dbModule.run(
-          `INSERT INTO stock_mutations (
-            product_id, mutation_type, quantity, reference_type, reference_id, 
-            notes, user_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            item.product_id,
-            'in',
-            item.quantity,
-            'void',
-            id,
-            `Void transaksi ${transaction.transaction_code}`,
-            currentUser ? currentUser.id : null
-          ]
-        );
-      });
-
-      // Commit transaction
-      dbModule.db.exec('COMMIT');
-
-      console.log('Transaction voided successfully:', id);
-      return { success: true };
-
-    } catch (error) {
-      // Rollback on error
-      dbModule.db.exec('ROLLBACK');
-      throw error;
+      // Create stock mutation
+      dbModule.run(
+        `INSERT INTO stock_mutations (
+          product_id, mutation_type, quantity, reference_type, reference_id, 
+          notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item.product_id,
+          'in',
+          item.quantity,
+          'void',
+          id,
+          `Void transaksi ${transaction.transaction_code}`,
+          currentUser ? currentUser.id : null
+        ]
+      );
     }
+
+    console.log('Transaction voided successfully:', id);
+    return { success: true };
 
   } catch (error) {
     console.error('Void transaction error:', error);
-    return { success: false, message: 'Gagal void transaksi' };
+    return { success: false, message: 'Gagal void transaksi: ' + error.message };
   }
 });
 
