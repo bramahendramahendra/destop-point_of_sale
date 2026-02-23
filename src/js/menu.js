@@ -22,9 +22,8 @@ function renderMenu(activePage) {
       id: 'kasir',
       icon: '🛒',
       text: 'Kasir',
-      href: '#kasir',
-      roles: ['owner', 'admin', 'kasir'],
-      disabled: true
+      href: 'kasir.html',
+      roles: ['owner', 'admin', 'kasir']
     },
     {
       id: 'products',
@@ -37,9 +36,8 @@ function renderMenu(activePage) {
       id: 'transaksi',
       icon: '💳',
       text: 'Transaksi',
-      href: '#transaksi',
-      roles: ['owner', 'admin', 'kasir'],
-      disabled: true
+      href: 'transactions.html',
+      roles: ['owner', 'admin', 'kasir']
     },
     {
       id: 'keuangan',

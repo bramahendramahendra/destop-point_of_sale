@@ -61,6 +61,75 @@ async function initDatabase() {
   run(createProductsTable);
   console.log('Products table created successfully');
 
+  // Create transactions table
+  const createTransactionsTable = `
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_code TEXT UNIQUE NOT NULL,
+      user_id INTEGER NOT NULL,
+      transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      subtotal REAL NOT NULL,
+      discount_type TEXT DEFAULT 'none',
+      discount_value REAL DEFAULT 0,
+      discount_amount REAL DEFAULT 0,
+      tax_percent REAL DEFAULT 0,
+      tax_amount REAL DEFAULT 0,
+      total_amount REAL NOT NULL,
+      payment_method TEXT NOT NULL,
+      payment_amount REAL NOT NULL,
+      change_amount REAL DEFAULT 0,
+      customer_name TEXT,
+      notes TEXT,
+      status TEXT DEFAULT 'completed',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+
+  run(createTransactionsTable);
+  console.log('Transactions table created successfully');
+
+  // Create transaction_items table
+  const createTransactionItemsTable = `
+    CREATE TABLE IF NOT EXISTS transaction_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      product_name TEXT NOT NULL,
+      barcode TEXT,
+      quantity REAL NOT NULL,
+      unit TEXT,
+      price REAL NOT NULL,
+      subtotal REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `;
+
+  run(createTransactionItemsTable);
+  console.log('Transaction items table created successfully');
+
+  // Create stock_mutations table
+  const createStockMutationsTable = `
+    CREATE TABLE IF NOT EXISTS stock_mutations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      mutation_type TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      reference_type TEXT,
+      reference_id INTEGER,
+      notes TEXT,
+      user_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+
+  run(createStockMutationsTable);
+  console.log('Stock mutations table created successfully');
+
   // Check if admin user exists
   const adminExists = get('SELECT id FROM users WHERE username = ?', ['admin']);
 

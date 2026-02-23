@@ -25,12 +25,20 @@ contextBridge.exposeInMainWorld('api', {
     getAll: () => ipcRenderer.invoke('products:getAll'),
     getById: (id) => ipcRenderer.invoke('products:getById', id),
     getByBarcode: (barcode) => ipcRenderer.invoke('products:getByBarcode', barcode),
+    search: (keyword) => ipcRenderer.invoke('products:search', keyword),
     create: (productData) => ipcRenderer.invoke('products:create', productData),
     update: (id, productData) => ipcRenderer.invoke('products:update', id, productData),
     delete: (id) => ipcRenderer.invoke('products:delete', id),
     toggleStatus: (id) => ipcRenderer.invoke('products:toggleStatus', id)
   },
+  transactions: {
+    create: (transactionData) => ipcRenderer.invoke('transactions:create', transactionData),
+    getAll: (filters) => ipcRenderer.invoke('transactions:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('transactions:getById', id),
+    void: (id) => ipcRenderer.invoke('transactions:void', id)
+  },
   window: {
-    loadLoginPage: () => ipcRenderer.send('load-login-page')
+    loadLoginPage: () => ipcRenderer.send('load-login-page'),
+    openReceipt: (transactionId) => ipcRenderer.send('window:openReceipt', transactionId)
   }
 });

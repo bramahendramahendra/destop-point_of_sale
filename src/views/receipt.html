@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Struk Pembayaran</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="receipt-page">
+  <div class="receipt-container">
+    <div class="receipt-content">
+      <!-- Header -->
+      <div class="receipt-header">
+        <h1>TOKO RETAIL</h1>
+        <p>Jl. Contoh No. 123</p>
+        <p>Telp: 0812-3456-7890</p>
+        <div class="receipt-divider"></div>
+      </div>
+
+      <!-- Transaction Info -->
+      <div class="receipt-info">
+        <div class="info-row">
+          <span>Tanggal</span>
+          <span id="receiptDate">-</span>
+        </div>
+        <div class="info-row">
+          <span>Waktu</span>
+          <span id="receiptTime">-</span>
+        </div>
+        <div class="info-row">
+          <span>Kode Transaksi</span>
+          <span id="receiptCode">-</span>
+        </div>
+        <div class="info-row">
+          <span>Kasir</span>
+          <span id="receiptCashier">-</span>
+        </div>
+        <div class="info-row" id="receiptCustomerRow" style="display: none;">
+          <span>Customer</span>
+          <span id="receiptCustomer">-</span>
+        </div>
+        <div class="receipt-divider"></div>
+      </div>
+
+      <!-- Items -->
+      <div class="receipt-items">
+        <table class="receipt-table">
+          <tbody id="receiptItemsBody">
+          </tbody>
+        </table>
+        <div class="receipt-divider"></div>
+      </div>
+
+      <!-- Summary -->
+      <div class="receipt-summary">
+        <div class="summary-row">
+          <span>Subtotal:</span>
+          <span id="receiptSubtotal">Rp 0</span>
+        </div>
+        <div class="summary-row" id="receiptDiscountRow" style="display: none;">
+          <span>Diskon:</span>
+          <span id="receiptDiscount">Rp 0</span>
+        </div>
+        <div class="summary-row" id="receiptTaxRow" style="display: none;">
+          <span>Pajak:</span>
+          <span id="receiptTax">Rp 0</span>
+        </div>
+        <div class="summary-row total-row">
+          <span>TOTAL:</span>
+          <strong id="receiptTotal">Rp 0</strong>
+        </div>
+        <div class="summary-row">
+          <span>Bayar:</span>
+          <span id="receiptPaid">Rp 0</span>
+        </div>
+        <div class="summary-row">
+          <span>Kembali:</span>
+          <span id="receiptChange">Rp 0</span>
+        </div>
+        <div class="receipt-divider"></div>
+      </div>
+
+      <!-- Footer -->
+      <div class="receipt-footer">
+        <p>Terima Kasih</p>
+        <p>Barang yang sudah dibeli tidak dapat ditukar</p>
+      </div>
+    </div>
+
+    <!-- Action Buttons (tidak akan di-print) -->
+    <div class="receipt-actions no-print">
+      <button class="btn btn-primary btn-large" id="btnPrint" onclick="window.print()">
+        🖨️ Print Struk
+      </button>
+      <button class="btn btn-secondary" onclick="window.close()">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/receipt.js"></script>
+</body>
+</html>

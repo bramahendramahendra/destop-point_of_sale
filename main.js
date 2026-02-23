@@ -567,3 +567,318 @@ ipcMain.handle('products:toggleStatus', async (event, id) => {
     return { success: false, message: 'Gagal mengubah status produk' };
   }
 });
+
+// ============================================
+// TRANSACTIONS IPC HANDLERS
+// ============================================
+
+// Search products (for autocomplete)
+ipcMain.handle('products:search', async (event, keyword) => {
+  try {
+    if (!keyword || keyword.length < 2) {
+      return { success: true, products: [] };
+    }
+
+    const products = dbModule.all(`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = 1 
+      AND (p.name LIKE ? OR p.barcode LIKE ?)
+      ORDER BY p.name
+      LIMIT 10
+    `, [`%${keyword}%`, `%${keyword}%`]);
+    
+    return { success: true, products };
+  } catch (error) {
+    console.error('Search products error:', error);
+    return { success: false, message: 'Gagal mencari produk' };
+  }
+});
+
+// Create transaction
+ipcMain.handle('transactions:create', async (event, transactionData) => {
+  try {
+    console.log('Creating transaction:', transactionData.transaction_code);
+
+    // Start transaction
+    dbModule.db.exec('BEGIN TRANSACTION');
+
+    try {
+      // 1. Insert transaction
+      const transactionResult = dbModule.run(
+        `INSERT INTO transactions (
+          transaction_code, user_id, transaction_date, subtotal, 
+          discount_type, discount_value, discount_amount, 
+          tax_percent, tax_amount, total_amount, 
+          payment_method, payment_amount, change_amount, 
+          customer_name, notes, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          transactionData.transaction_code,
+          transactionData.user_id,
+          transactionData.transaction_date,
+          transactionData.subtotal,
+          transactionData.discount_type,
+          transactionData.discount_value,
+          transactionData.discount_amount,
+          transactionData.tax_percent,
+          transactionData.tax_amount,
+          transactionData.total_amount,
+          transactionData.payment_method,
+          transactionData.payment_amount,
+          transactionData.change_amount,
+          transactionData.customer_name || null,
+          transactionData.notes || null,
+          'completed'
+        ]
+      );
+
+      const transactionId = transactionResult.lastInsertRowid;
+
+      // 2. Insert transaction items
+      transactionData.items.forEach(item => {
+        dbModule.run(
+          `INSERT INTO transaction_items (
+            transaction_id, product_id, product_name, barcode, 
+            quantity, unit, price, subtotal
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            transactionId,
+            item.product_id,
+            item.product_name,
+            item.barcode,
+            item.quantity,
+            item.unit,
+            item.price,
+            item.subtotal
+          ]
+        );
+
+        // 3. Update product stock
+        dbModule.run(
+          'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [item.quantity, item.product_id]
+        );
+
+        // 4. Create stock mutation
+        dbModule.run(
+          `INSERT INTO stock_mutations (
+            product_id, mutation_type, quantity, reference_type, reference_id, 
+            notes, user_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.product_id,
+            'out',
+            item.quantity,
+            'sale',
+            transactionId,
+            `Penjualan ${transactionData.transaction_code}`,
+            transactionData.user_id
+          ]
+        );
+      });
+
+      // Commit transaction
+      dbModule.db.exec('COMMIT');
+
+      console.log('Transaction created successfully:', transactionData.transaction_code);
+      return { success: true, transactionId };
+
+    } catch (error) {
+      // Rollback on error
+      dbModule.db.exec('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Create transaction error:', error);
+    return { success: false, message: 'Gagal menyimpan transaksi' };
+  }
+});
+
+// Get all transactions with filters
+ipcMain.handle('transactions:getAll', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT t.*, u.full_name as cashier_name
+      FROM transactions t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    // Filter by date range
+    if (filters.startDate) {
+      sql += ' AND DATE(t.transaction_date) >= DATE(?)';
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      sql += ' AND DATE(t.transaction_date) <= DATE(?)';
+      params.push(filters.endDate);
+    }
+
+    // Filter by transaction code
+    if (filters.transactionCode) {
+      sql += ' AND t.transaction_code LIKE ?';
+      params.push(`%${filters.transactionCode}%`);
+    }
+
+    // Filter by cashier
+    if (filters.userId) {
+      sql += ' AND t.user_id = ?';
+      params.push(filters.userId);
+    }
+
+    // Filter by payment method
+    if (filters.paymentMethod) {
+      sql += ' AND t.payment_method = ?';
+      params.push(filters.paymentMethod);
+    }
+
+    // Filter by status
+    if (filters.status) {
+      sql += ' AND t.status = ?';
+      params.push(filters.status);
+    }
+
+    sql += ' ORDER BY t.transaction_date DESC';
+
+    // Pagination
+    if (filters.limit) {
+      sql += ' LIMIT ?';
+      params.push(filters.limit);
+      
+      if (filters.offset) {
+        sql += ' OFFSET ?';
+        params.push(filters.offset);
+      }
+    }
+
+    const transactions = dbModule.all(sql, params);
+    
+    return { success: true, transactions };
+  } catch (error) {
+    console.error('Get all transactions error:', error);
+    return { success: false, message: 'Gagal memuat data transaksi' };
+  }
+});
+
+// Get transaction by ID with items
+ipcMain.handle('transactions:getById', async (event, id) => {
+  try {
+    const transaction = dbModule.get(`
+      SELECT t.*, u.full_name as cashier_name
+      FROM transactions t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.id = ?
+    `, [id]);
+    
+    if (!transaction) {
+      return { success: false, message: 'Transaksi tidak ditemukan' };
+    }
+
+    // Get transaction items
+    const items = dbModule.all(
+      'SELECT * FROM transaction_items WHERE transaction_id = ?',
+      [id]
+    );
+
+    transaction.items = items;
+    
+    return { success: true, transaction };
+  } catch (error) {
+    console.error('Get transaction by ID error:', error);
+    return { success: false, message: 'Gagal memuat data transaksi' };
+  }
+});
+
+// Void transaction
+ipcMain.handle('transactions:void', async (event, id) => {
+  try {
+    console.log('Voiding transaction:', id);
+
+    // Get transaction data
+    const transaction = dbModule.get('SELECT * FROM transactions WHERE id = ?', [id]);
+    
+    if (!transaction) {
+      return { success: false, message: 'Transaksi tidak ditemukan' };
+    }
+
+    if (transaction.status === 'void') {
+      return { success: false, message: 'Transaksi sudah di-void sebelumnya' };
+    }
+
+    // Get transaction items
+    const items = dbModule.all('SELECT * FROM transaction_items WHERE transaction_id = ?', [id]);
+
+    // Start transaction
+    dbModule.db.exec('BEGIN TRANSACTION');
+
+    try {
+      // 1. Update transaction status
+      dbModule.run(
+        'UPDATE transactions SET status = ? WHERE id = ?',
+        ['void', id]
+      );
+
+      // 2. Restore stock for each item
+      items.forEach(item => {
+        dbModule.run(
+          'UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [item.quantity, item.product_id]
+        );
+
+        // 3. Create stock mutation
+        dbModule.run(
+          `INSERT INTO stock_mutations (
+            product_id, mutation_type, quantity, reference_type, reference_id, 
+            notes, user_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.product_id,
+            'in',
+            item.quantity,
+            'void',
+            id,
+            `Void transaksi ${transaction.transaction_code}`,
+            currentUser ? currentUser.id : null
+          ]
+        );
+      });
+
+      // Commit transaction
+      dbModule.db.exec('COMMIT');
+
+      console.log('Transaction voided successfully:', id);
+      return { success: true };
+
+    } catch (error) {
+      // Rollback on error
+      dbModule.db.exec('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Void transaction error:', error);
+    return { success: false, message: 'Gagal void transaksi' };
+  }
+});
+
+// Open receipt window
+ipcMain.on('window:openReceipt', (event, transactionId) => {
+  const receiptWindow = new BrowserWindow({
+    width: 400,
+    height: 600,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  // Load receipt page with transaction ID as query parameter
+  receiptWindow.loadFile(path.join(__dirname, 'src/views/receipt.html'), {
+    query: { id: transactionId.toString() }
+  });
+});

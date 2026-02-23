@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kasir - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Kasir</h1>
+        <div class="keyboard-hints">
+          <span class="hint"><kbd>F2</kbd> Focus Input</span>
+          <span class="hint"><kbd>Enter</kbd> Tambah</span>
+          <span class="hint"><kbd>F8</kbd> Bayar</span>
+          <span class="hint"><kbd>ESC</kbd> Batal</span>
+        </div>
+      </div>
+
+      <!-- Kasir Layout -->
+      <div class="kasir-container">
+        <!-- Left Column: Cart -->
+        <div class="kasir-left">
+          <!-- Product Search -->
+          <div class="product-search-box">
+            <input 
+              type="text" 
+              id="productSearch" 
+              placeholder="Ketik nama produk atau scan barcode..."
+              autocomplete="off"
+            >
+            <div id="productSuggestions" class="suggestions-dropdown"></div>
+          </div>
+
+          <!-- Cart Table -->
+          <div class="cart-container">
+            <table class="cart-table">
+              <thead>
+                <tr>
+                  <th width="40">No</th>
+                  <th>Nama Produk</th>
+                  <th width="100">Harga</th>
+                  <th width="120">Qty</th>
+                  <th width="60">Satuan</th>
+                  <th width="120">Subtotal</th>
+                  <th width="50">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="cartTableBody">
+                <tr>
+                  <td colspan="7" class="text-center empty-cart">
+                    Keranjang masih kosong<br>
+                    <small>Scan barcode atau cari produk untuk mulai transaksi</small>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Cart Summary -->
+          <div class="cart-summary">
+            <div class="summary-row">
+              <span>Subtotal:</span>
+              <strong id="cartSubtotal">Rp 0</strong>
+            </div>
+            <div class="summary-row discount-row">
+              <div class="discount-controls">
+                <span>Diskon:</span>
+                <div class="discount-toggle">
+                  <button class="btn-toggle" id="discountTypePercent" data-type="percent">%</button>
+                  <button class="btn-toggle" id="discountTypeAmount" data-type="amount">Rp</button>
+                </div>
+                <input 
+                  type="number" 
+                  id="discountValue" 
+                  placeholder="0"
+                  min="0"
+                  step="1"
+                >
+              </div>
+              <strong id="discountAmount">Rp 0</strong>
+            </div>
+            <div class="summary-row">
+              <div class="tax-controls">
+                <span>Pajak:</span>
+                <input 
+                  type="number" 
+                  id="taxPercent" 
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                >
+                <span>%</span>
+              </div>
+              <strong id="taxAmount">Rp 0</strong>
+            </div>
+            <div class="summary-row total-row">
+              <span>TOTAL:</span>
+              <strong id="cartTotal" class="total-amount">Rp 0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Payment -->
+        <div class="kasir-right">
+          <div class="payment-form">
+            <h3>Informasi Pembayaran</h3>
+            
+            <div class="form-group">
+              <label for="customerName">Nama Customer</label>
+              <input 
+                type="text" 
+                id="customerName" 
+                placeholder="Opsional"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="paymentMethod">Metode Bayar <span class="required">*</span></label>
+              <select id="paymentMethod" required>
+                <option value="cash">Cash</option>
+                <option value="debit">Debit Card</option>
+                <option value="credit">Credit Card</option>
+                <option value="qris">QRIS</option>
+                <option value="transfer">Transfer</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="notes">Catatan</label>
+              <textarea 
+                id="notes" 
+                placeholder="Catatan transaksi (opsional)"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+              <button class="btn btn-success btn-large btn-block" id="btnPayment">
+                💰 BAYAR (F8)
+              </button>
+              <button class="btn btn-warning btn-block" id="btnHold">
+                ⏸️ TUNDA (F9)
+              </button>
+              <button class="btn btn-danger btn-block" id="btnCancel">
+                ❌ BATAL (ESC)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Payment Modal -->
+  <div id="paymentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Pembayaran</h2>
+        <button class="modal-close" id="closePaymentModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="payment-summary">
+          <div class="payment-info-row">
+            <span>Total Tagihan:</span>
+            <strong id="paymentTotal" class="total-amount">Rp 0</strong>
+          </div>
+          <div class="payment-info-row">
+            <span>Metode Bayar:</span>
+            <strong id="paymentMethodDisplay">Cash</strong>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="paymentAmount">Jumlah Uang Dibayar <span class="required">*</span></label>
+          <input 
+            type="number" 
+            id="paymentAmount" 
+            placeholder="0"
+            min="0"
+            step="1000"
+            autofocus
+          >
+        </div>
+
+        <div class="payment-change">
+          <div class="change-row" id="changeDisplay">
+            <span>Kembalian:</span>
+            <strong id="changeAmount">Rp 0</strong>
+          </div>
+          <div class="warning-insufficient" id="insufficientWarning" style="display: none;">
+            ⚠️ Uang yang dibayarkan kurang!
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelPayment">Batal</button>
+          <button type="button" class="btn btn-success btn-large" id="btnProcessPayment">
+            ✓ Proses Pembayaran
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/kasir.js"></script>
+</body>
+</html>

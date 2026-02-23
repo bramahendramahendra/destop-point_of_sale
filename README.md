@@ -57,7 +57,7 @@ Gunakan kredensial berikut untuk login pertama kali:
 - ✅ **STEP 1: Login & Dashboard Basic** - DONE
 - ✅ **STEP 2: User Management** - DONE
 - ✅ **STEP 3: Category & Product Management** - DONE
-- ⏳ STEP 4: Cashier/Transaction - Coming Soon
+- ✅ **STEP 4: Kasir & Transaksi** - DONE
 - ⏳ STEP 5: Finance - Coming Soon
 - ⏳ STEP 6: Reports - Coming Soon
 
@@ -123,6 +123,60 @@ Lakukan testing dengan langkah berikut:
 20. ✅ Filter by kategori → Hanya produk kategori itu yang muncul
 21. ✅ Filter "Stok Menipis" → Hanya produk dengan stok < min_stock
 22. ✅ Lihat badge stok: merah (habis), kuning (menipis), hijau (aman)
+
+## Testing Step 4
+
+### Kasir Page:
+1. ✅ Restart aplikasi (untuk init database baru dengan table transaksi)
+2. ✅ Login sebagai kasir atau admin
+3. ✅ Klik menu "Kasir"
+4. ✅ Ketik nama produk di search → dropdown muncul dengan suggestions
+5. ✅ Pilih produk dari dropdown → produk masuk ke cart
+6. ✅ Scan barcode (ketik barcode + Enter) → produk masuk ke cart
+7. ✅ Ubah qty dengan button +/- → qty berubah, subtotal update
+8. ✅ Klik X untuk hapus item → item terhapus dari cart
+9. ✅ Tambah beberapa produk ke cart
+10. ✅ Klik toggle diskon → pilih % atau Rp
+11. ✅ Isi nilai diskon 10% → diskon auto-calculate
+12. ✅ Isi pajak 11% → pajak auto-calculate
+13. ✅ Cek total akhir sudah benar
+14. ✅ Tekan F8 atau klik "BAYAR" → modal pembayaran muncul
+15. ✅ Input uang dibayar kurang dari total → warning muncul, button disabled
+16. ✅ Input uang dibayar lebih dari total → kembalian auto-calculate
+17. ✅ Klik "Proses Pembayaran" → transaksi tersimpan
+18. ✅ Struk terbuka di window baru
+19. ✅ Print dialog muncul otomatis
+20. ✅ Print atau close struk
+21. ✅ Kembali ke kasir → cart sudah kosong
+22. ✅ Cek halaman Produk → stock berkurang sesuai qty yang dijual
+
+### Transactions Page:
+1. ✅ Klik menu "Transaksi"
+2. ✅ Tampil tabel transaksi dengan data transaksi yang baru dibuat
+3. ✅ Cek summary card: Total penjualan & jumlah transaksi
+4. ✅ Filter by date range → transaksi terfilter
+5. ✅ Search by kode transaksi → transaksi terfilter
+6. ✅ Filter by kasir → transaksi terfilter
+7. ✅ Filter by metode bayar → transaksi terfilter
+8. ✅ Klik icon mata (👁️) → modal detail terbuka
+9. ✅ Modal menampilkan semua info transaksi & items
+10. ✅ Klik "Print Ulang" → struk terbuka di window baru
+11. ✅ Login sebagai owner/admin
+12. ✅ Klik "Void Transaksi" → konfirmasi muncul
+13. ✅ Konfirmasi void → transaksi status jadi void
+14. ✅ Cek halaman Produk → stock kembali (dikembalikan)
+15. ✅ Kembali ke Transaksi → status transaksi jadi "Void" (badge merah)
+
+### Keyboard Shortcuts:
+1. ✅ Tekan F2 → focus ke input search produk
+2. ✅ Tekan F8 → modal pembayaran terbuka (jika cart ada isi)
+3. ✅ Tekan F9 → draft tersimpan
+4. ✅ Tekan ESC → konfirmasi batal transaksi muncul
+
+### Stock Mutations:
+1. ✅ Setiap transaksi penjualan → stock berkurang
+2. ✅ Setiap void transaksi → stock dikembalikan
+3. ✅ Stock mutations tercatat di database (cek dengan SQL viewer)
 
 ## Struktur Folder
 ```

@@ -189,26 +189,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const options = { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  };
-  return date.toLocaleDateString('id-ID', options);
-}
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0
-  }).format(amount);
-}
-
 // ============================================
 // PRODUCT & FINANCE HELPER FUNCTIONS
 // ============================================
@@ -226,6 +206,85 @@ function calculateMargin(purchasePrice, sellingPrice) {
   return Math.round(margin * 100) / 100; // 2 decimal places
 }
 
+
+// ============================================
+// TRANSACTION HELPER FUNCTIONS
+// ============================================
+
+// Generate transaction code: TRX-YYYYMMDD-0001
+function generateTransactionCode() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const time = now.getTime();
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  
+  return `TRX-${year}${month}${day}-${random}`;
+}
+
+// Get today date range for filters
+function getTodayRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  return {
+    startDate: `${year}-${month}-${day}`,
+    endDate: `${year}-${month}-${day}`
+  };
+}
+
+// Format date for display
+function formatDateTime(dateString) {
+  const date = new Date(dateString);
+  const options = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  };
+  return date.toLocaleString('id-ID', options);
+}
+
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const options = { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  return date.toLocaleDateString('id-ID', options);
+}
+
+// Format date only
+function formatDateOnly(dateString) {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${day}/${month}/${year}`;
+}
+
+// Format time only
+function formatTimeOnly(dateString) {
+  const date = new Date(dateString);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+// Format Rupiah (alias for formatCurrency)
+function formatRupiah(amount) {
+  return formatCurrency(amount);
+}
+
 // Format currency to IDR
 function formatCurrency(amount) {
   return new Intl.NumberFormat('id-ID', {
@@ -233,6 +292,12 @@ function formatCurrency(amount) {
     currency: 'IDR',
     minimumFractionDigits: 0
   }).format(amount);
+}
+
+// Parse currency string to number
+function parseCurrency(currencyString) {
+  if (typeof currencyString === 'number') return currencyString;
+  return parseFloat(currencyString.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
 }
 
 // Format number with thousand separator

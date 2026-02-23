@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Riwayat Transaksi - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Riwayat Transaksi</h1>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-content">
+            <h3>Total Penjualan</h3>
+            <p class="stat-value" id="totalSales">Rp 0</p>
+            <p class="stat-label">Dari filter yang dipilih</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">🛍️</div>
+          <div class="stat-content">
+            <h3>Jumlah Transaksi</h3>
+            <p class="stat-value" id="totalTransactions">0</p>
+            <p class="stat-label">Transaksi</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-container">
+        <div class="filter-group">
+          <div class="form-group">
+            <label>Dari Tanggal</label>
+            <input type="date" id="filterStartDate" class="filter-input">
+          </div>
+          <div class="form-group">
+            <label>Sampai Tanggal</label>
+            <input type="date" id="filterEndDate" class="filter-input">
+          </div>
+        </div>
+        
+        <div class="search-box">
+          <input 
+            type="text" 
+            id="searchTransaction" 
+            placeholder="🔍 Cari kode transaksi..."
+            class="search-input"
+          >
+        </div>
+
+        <div class="filter-group">
+          <select id="filterCashier" class="filter-select">
+            <option value="">Semua Kasir</option>
+          </select>
+          <select id="filterPaymentMethod" class="filter-select">
+            <option value="">Semua Metode</option>
+            <option value="cash">Cash</option>
+            <option value="debit">Debit Card</option>
+            <option value="credit">Credit Card</option>
+            <option value="qris">QRIS</option>
+            <option value="transfer">Transfer</option>
+          </select>
+          <select id="filterStatus" class="filter-select">
+            <option value="">Semua Status</option>
+            <option value="completed">Completed</option>
+            <option value="void">Void</option>
+          </select>
+          <button class="btn btn-primary" id="btnApplyFilter">
+            🔍 Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Transactions Table -->
+      <div class="table-container">
+        <table class="data-table" id="transactionsTable">
+          <thead>
+            <tr>
+              <th>Tanggal & Jam</th>
+              <th>Kode Transaksi</th>
+              <th>Kasir</th>
+              <th>Customer</th>
+              <th>Total</th>
+              <th>Metode Bayar</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="transactionsTableBody">
+            <tr>
+              <td colspan="8" class="text-center">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-container">
+        <button class="btn btn-secondary" id="btnPrevPage" disabled>
+          ◀ Sebelumnya
+        </button>
+        <span id="pageInfo">Halaman 1</span>
+        <button class="btn btn-secondary" id="btnNextPage">
+          Selanjutnya ▶
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Transaction Detail Modal -->
+  <div id="detailModal" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Detail Transaksi</h2>
+        <button class="modal-close" id="closeDetailModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="transaction-detail">
+          <!-- Transaction Info -->
+          <div class="detail-section">
+            <h3>Informasi Transaksi</h3>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Kode Transaksi:</span>
+                <strong id="detailCode">-</strong>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Tanggal & Waktu:</span>
+                <strong id="detailDate">-</strong>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Kasir:</span>
+                <strong id="detailCashier">-</strong>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Customer:</span>
+                <strong id="detailCustomer">-</strong>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Metode Bayar:</span>
+                <strong id="detailPaymentMethod">-</strong>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Status:</span>
+                <span id="detailStatus">-</span>
+              </div>
+              <div class="detail-item" id="detailNotesContainer" style="display: none;">
+                <span class="detail-label">Catatan:</span>
+                <span id="detailNotes">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <div class="detail-section">
+            <h3>Item Pembelian</h3>
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Nama Produk</th>
+                  <th>Harga</th>
+                  <th>Qty</th>
+                  <th>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody id="detailItemsBody">
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Payment Summary -->
+          <div class="detail-section">
+            <div class="payment-detail">
+              <div class="payment-row">
+                <span>Subtotal:</span>
+                <strong id="detailSubtotal">Rp 0</strong>
+              </div>
+              <div class="payment-row" id="detailDiscountRow" style="display: none;">
+                <span>Diskon:</span>
+                <strong id="detailDiscount">Rp 0</strong>
+              </div>
+              <div class="payment-row" id="detailTaxRow" style="display: none;">
+                <span>Pajak:</span>
+                <strong id="detailTax">Rp 0</strong>
+              </div>
+              <div class="payment-row total-row">
+                <span>TOTAL:</span>
+                <strong id="detailTotal" class="total-amount">Rp 0</strong>
+              </div>
+              <div class="payment-row">
+                <span>Dibayar:</span>
+                <strong id="detailPaid">Rp 0</strong>
+              </div>
+              <div class="payment-row">
+                <span>Kembalian:</span>
+                <strong id="detailChange">Rp 0</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCloseDetail">Tutup</button>
+          <button type="button" class="btn btn-primary" id="btnPrintReceipt">
+            🖨️ Print Ulang
+          </button>
+          <button type="button" class="btn btn-danger" id="btnVoidTransaction">
+            ❌ Void Transaksi
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/transactions.js"></script>
+</body>
+</html>
