@@ -611,6 +611,28 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
       return { success: false, message: 'Kode transaksi sudah ada' };
     }
 
+    // Ensure all values have defaults (no undefined)
+    const txData = {
+      transaction_code: transactionData.transaction_code || '',
+      user_id: transactionData.user_id || 0,
+      transaction_date: transactionData.transaction_date || new Date().toISOString(),
+      subtotal: transactionData.subtotal || 0,
+      discount_type: transactionData.discount_type || 'none',
+      discount_value: transactionData.discount_value || 0,
+      discount_amount: transactionData.discount_amount || 0,
+      tax_percent: transactionData.tax_percent || 0,
+      tax_amount: transactionData.tax_amount || 0,
+      total_amount: transactionData.total_amount || 0,
+      payment_method: transactionData.payment_method || 'cash',
+      payment_amount: transactionData.payment_amount || 0,
+      change_amount: transactionData.change_amount || 0,
+      customer_name: transactionData.customer_name || '',
+      notes: transactionData.notes || '',
+      status: 'completed'
+    };
+
+    console.log('Transaction data prepared:', txData);
+
     // 1. Insert transaction
     const transactionResult = dbModule.run(
       `INSERT INTO transactions (
@@ -621,29 +643,44 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
         customer_name, notes, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        transactionData.transaction_code,
-        transactionData.user_id,
-        transactionData.transaction_date,
-        transactionData.subtotal,
-        transactionData.discount_type,
-        transactionData.discount_value,
-        transactionData.discount_amount,
-        transactionData.tax_percent,
-        transactionData.tax_amount,
-        transactionData.total_amount,
-        transactionData.payment_method,
-        transactionData.payment_amount,
-        transactionData.change_amount,
-        transactionData.customer_name || null,
-        transactionData.notes || null,
-        'completed'
+        txData.transaction_code,
+        txData.user_id,
+        txData.transaction_date,
+        txData.subtotal,
+        txData.discount_type,
+        txData.discount_value,
+        txData.discount_amount,
+        txData.tax_percent,
+        txData.tax_amount,
+        txData.total_amount,
+        txData.payment_method,
+        txData.payment_amount,
+        txData.change_amount,
+        txData.customer_name,
+        txData.notes,
+        txData.status
       ]
     );
 
     const transactionId = transactionResult.lastInsertRowid;
+    console.log('Transaction inserted with ID:', transactionId);
 
     // 2. Insert transaction items and update stock
     for (const item of transactionData.items) {
+      console.log('Processing item:', item.product_name);
+
+      // Ensure item values have defaults
+      const itemData = {
+        transaction_id: transactionId,
+        product_id: item.product_id || 0,
+        product_name: item.product_name || '',
+        barcode: item.barcode || '',
+        quantity: item.quantity || 0,
+        unit: item.unit || 'pcs',
+        price: item.price || 0,
+        subtotal: item.subtotal || 0
+      };
+
       // Insert transaction item
       dbModule.run(
         `INSERT INTO transaction_items (
@@ -651,21 +688,21 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
           quantity, unit, price, subtotal
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          transactionId,
-          item.product_id,
-          item.product_name,
-          item.barcode,
-          item.quantity,
-          item.unit,
-          item.price,
-          item.subtotal
+          itemData.transaction_id,
+          itemData.product_id,
+          itemData.product_name,
+          itemData.barcode,
+          itemData.quantity,
+          itemData.unit,
+          itemData.price,
+          itemData.subtotal
         ]
       );
 
       // Update product stock
       dbModule.run(
         'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [item.quantity, item.product_id]
+        [itemData.quantity, itemData.product_id]
       );
 
       // Create stock mutation
@@ -675,15 +712,17 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
           notes, user_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          item.product_id,
+          itemData.product_id,
           'out',
-          item.quantity,
+          itemData.quantity,
           'sale',
           transactionId,
-          `Penjualan ${transactionData.transaction_code}`,
-          transactionData.user_id
+          `Penjualan ${txData.transaction_code}`,
+          txData.user_id
         ]
       );
+
+      console.log('Item processed successfully:', item.product_name);
     }
 
     console.log('Transaction created successfully:', transactionData.transaction_code);
@@ -691,6 +730,7 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
 
   } catch (error) {
     console.error('Create transaction error:', error);
+    console.error('Error stack:', error.stack);
     return { success: false, message: 'Gagal menyimpan transaksi: ' + error.message };
   }
 });

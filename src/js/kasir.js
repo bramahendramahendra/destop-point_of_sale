@@ -174,7 +174,6 @@ async function selectProduct(productId) {
 // ============================================
 // CART MANAGEMENT
 // ============================================
-
 function addToCart(product, quantity) {
   // Check stock
   if (product.stock < quantity) {
@@ -197,14 +196,14 @@ function addToCart(product, quantity) {
     cart[existingIndex].quantity = newQty;
     cart[existingIndex].subtotal = cart[existingIndex].quantity * cart[existingIndex].price;
   } else {
-    // Add new item
+    // Add new item - ensure all fields exist
     cart.push({
       product_id: product.id,
       product_name: product.name,
-      barcode: product.barcode,
+      barcode: product.barcode || '',
       price: product.selling_price,
       quantity: quantity,
-      unit: product.unit,
+      unit: product.unit || 'pcs',
       subtotal: product.selling_price * quantity,
       stock: product.stock
     });
@@ -425,24 +424,38 @@ async function processTransaction() {
   }
 
   const transactionCode = generateTransactionCode();
+  
+  // Ensure all cart items have complete data
+  const items = cart.map(item => ({
+    product_id: item.product_id,
+    product_name: item.product_name,
+    barcode: item.barcode || '',
+    quantity: item.quantity,
+    unit: item.unit || 'pcs',
+    price: item.price,
+    subtotal: item.subtotal
+  }));
+
   const transactionData = {
     transaction_code: transactionCode,
     user_id: currentUser.id,
     transaction_date: new Date().toISOString(),
     subtotal: calculateSubtotal(),
-    discount_type: currentDiscount.type,
-    discount_value: currentDiscount.value,
-    discount_amount: currentDiscount.amount,
-    tax_percent: currentTax.percent,
-    tax_amount: currentTax.amount,
+    discount_type: currentDiscount.type || 'none',
+    discount_value: currentDiscount.value || 0,
+    discount_amount: currentDiscount.amount || 0,
+    tax_percent: currentTax.percent || 0,
+    tax_amount: currentTax.amount || 0,
     total_amount: total,
     payment_method: document.getElementById('paymentMethod').value,
     payment_amount: paymentAmount,
     change_amount: paymentAmount - total,
-    customer_name: document.getElementById('customerName').value.trim() || null,
-    notes: document.getElementById('notes').value.trim() || null,
-    items: cart
+    customer_name: document.getElementById('customerName').value.trim() || '',
+    notes: document.getElementById('notes').value.trim() || '',
+    items: items
   };
+
+  console.log('Transaction data to send:', transactionData);
 
   // Disable button
   const btnProcess = document.getElementById('btnProcessPayment');
