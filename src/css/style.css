@@ -15,6 +15,7 @@ body {
   line-height: 1.6;
 }
 
+
 /* ========================================
    BUTTON STYLES
    Semua varian tombol: primary, secondary, danger, dll.
@@ -58,7 +59,6 @@ body {
   background-color: #2980b9;
 }
 
-/* Button Secondary */
 .btn-secondary {
   background-color: #95a5a6;
   color: white;
@@ -82,6 +82,7 @@ body {
   background-color: #c0392b;
 }
 
+/* Button Sizes */
 .btn-block {
   width: 100%;
   display: block;
@@ -98,6 +99,7 @@ body {
   font-weight: 700;
 }
 
+/* Icon Button */
 .btn-icon {
   background: none;
   border: none;
@@ -123,6 +125,7 @@ body {
   transform: none;
 }
 
+/* Quantity Button (Kasir) */
 .btn-qty {
   width: 28px;
   height: 28px;
@@ -140,6 +143,7 @@ body {
   color: white;
 }
 
+/* Remove Button (Cart) */
 .btn-remove {
   background: none;
   border: none;
@@ -153,6 +157,7 @@ body {
   transform: scale(1.2);
 }
 
+/* Toggle Button */
 .btn-toggle {
   padding: 5px 12px;
   border: 1px solid #3498db;
@@ -170,7 +175,127 @@ body {
   color: white;
 }
 
-/* Modal Styles */
+
+/* ========================================
+   FORM STYLES
+   Input, select, label, form-group, dan layout form
+   ======================================== */
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dfe6e9;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+/* Fix untuk input yang ter-disable */
+.form-group input:disabled {
+  background-color: #f0f0f0;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-group input:not(:disabled) {
+  background-color: white;
+  cursor: text;
+}
+
+/* Pastikan input bisa diklik */
+.form-group input {
+  pointer-events: auto !important;
+  user-select: text !important;
+}
+
+.form-text {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+/* Form Layout */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 0;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input-group input {
+  flex: 1;
+}
+
+.input-group .btn {
+  white-space: nowrap;
+}
+
+.readonly-input {
+  background-color: #f8f9fa !important;
+  cursor: not-allowed;
+}
+
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dfe6e9;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.required {
+  color: #e74c3c;
+}
+
+.error-message {
+  background-color: #fee;
+  color: #c0392b;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  border-left: 4px solid #e74c3c;
+}
+
+
+/* ========================================
+   MODAL STYLES
+   Dialog/popup overlay untuk semua modal di aplikasi
+   ======================================== */
+
 .modal {
   display: none;
   position: fixed;
@@ -194,13 +319,17 @@ body {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
+/* Modal Size Variants */
 .modal-small {
   max-width: 400px;
 }
 
-/* Modal Large */
 .modal-large {
   max-width: 800px;
+}
+
+.modal-extra-large {
+  max-width: 900px;
 }
 
 .modal-header {
@@ -247,6 +376,177 @@ body {
   justify-content: flex-end;
   margin-top: 20px;
 }
+
+
+/* ========================================
+   TOAST NOTIFICATION
+   Notifikasi popup di pojok kanan atas
+   ======================================== */
+
+.toast {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast.hiding {
+  animation: slideOut 0.3s ease;
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+.toast-icon {
+  font-size: 24px;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-message {
+  margin: 0;
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #7f8c8d;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.toast-close:hover {
+  color: #2c3e50;
+}
+
+/* Toast Type Variants */
+.toast-success {
+  border-left: 4px solid #27ae60;
+}
+
+.toast-error {
+  border-left: 4px solid #e74c3c;
+}
+
+.toast-info {
+  border-left: 4px solid #3498db;
+}
+
+
+/* ========================================
+   CONFIRM DIALOG
+   Dialog konfirmasi kustom (pengganti window.confirm)
+   ======================================== */
+   
+.confirm-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2500;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-dialog {
+  background: white;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: dialogIn 0.2s ease;
+}
+
+@keyframes dialogIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.confirm-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.confirm-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #2c3e50;
+}
+
+.confirm-body {
+  padding: 25px;
+}
+
+.confirm-message {
+  margin: 0;
+  color: #555;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.confirm-footer {
+  padding: 15px 25px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  border-top: 1px solid #ecf0f1;
+}
+
+
+/* ========================================
+   BADGE STYLES
+   Label status, role, kategori, dan pembayaran
+   ======================================== */
+
+
+
+
+
 
 /* Login Page Styles */
 .login-page {
@@ -350,117 +650,22 @@ body {
   justify-content: flex-end;
 }
 
-.form-group {
-  margin-bottom: 20px;
-}
 
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 14px;
-}
 
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #dfe6e9;
-  border-radius: 5px;
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color 0.3s ease;
-}
 
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #3498db;
-}
 
-/* Fix untuk input yang ter-disable */
-.form-group input:disabled {
-  background-color: #f0f0f0;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
 
-.form-group input:not(:disabled) {
-  background-color: white;
-  cursor: text;
-}
 
-/* Pastikan input bisa diklik */
-.form-group input {
-  pointer-events: auto !important;
-  user-select: text !important;
-}
 
-.form-text {
-  display: block;
-  margin-top: 5px;
-  font-size: 12px;
-  color: #7f8c8d;
-}
 
-/* ========================================
-   FORM LAYOUTS
-   ======================================== */
 
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-bottom: 0;
-}
 
-.input-group {
-  display: flex;
-  gap: 8px;
-}
 
-.input-group input {
-  flex: 1;
-}
 
-.input-group .btn {
-  white-space: nowrap;
-}
 
-.readonly-input {
-  background-color: #f8f9fa !important;
-  cursor: not-allowed;
-}
 
-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #dfe6e9;
-  border-radius: 5px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
-}
 
-textarea:focus {
-  outline: none;
-  border-color: #3498db;
-}
 
-.required {
-  color: #e74c3c;
-}
-
-.error-message {
-  background-color: #fee;
-  color: #c0392b;
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 15px;
-  font-size: 14px;
-  border-left: 4px solid #e74c3c;
-}
 
 .login-footer {
   text-align: center;
@@ -735,6 +940,11 @@ textarea:focus {
   color: #856404;
 }
 
+.badge-secondary {
+  background-color: #ecf0f1;
+  color: #7f8c8d;
+}
+
 .badge-role {
   text-transform: capitalize;
 }
@@ -758,6 +968,14 @@ textarea:focus {
   background-color: #e8f5e9;
   color: #2e7d32;
 }
+
+/* Badge Variants */
+.badge-category {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+
 
 /* Action Buttons */
 .action-buttons {
@@ -865,160 +1083,22 @@ textarea:focus {
   color: #95a5a6;
 }
 
-/* ========================================
-   CUSTOM TOAST NOTIFICATION
-   ======================================== */
 
-.toast {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  background: white;
-  padding: 15px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 300px;
-  animation: slideIn 0.3s ease;
-}
 
-@keyframes slideIn {
-  from {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
 
-.toast.hiding {
-  animation: slideOut 0.3s ease;
-}
 
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-}
 
-.toast-icon {
-  font-size: 24px;
-}
 
-.toast-content {
-  flex: 1;
-}
 
-.toast-message {
-  margin: 0;
-  font-size: 14px;
-  color: #2c3e50;
-  font-weight: 500;
-}
 
-.toast-close {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #7f8c8d;
-  padding: 0;
-  width: 24px;
-  height: 24px;
-}
 
-.toast-close:hover {
-  color: #2c3e50;
-}
 
-.toast-success {
-  border-left: 4px solid #27ae60;
-}
 
-.toast-error {
-  border-left: 4px solid #e74c3c;
-}
 
-.toast-info {
-  border-left: 4px solid #3498db;
-}
 
-/* ========================================
-   CUSTOM CONFIRM DIALOG (Better version)
-   ======================================== */
 
-.confirm-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 2500;
-  align-items: center;
-  justify-content: center;
-}
 
-.confirm-dialog {
-  background: white;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  animation: dialogIn 0.2s ease;
-}
 
-@keyframes dialogIn {
-  from {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.confirm-header {
-  padding: 20px 25px;
-  border-bottom: 1px solid #ecf0f1;
-}
-
-.confirm-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #2c3e50;
-}
-
-.confirm-body {
-  padding: 25px;
-}
-
-.confirm-message {
-  margin: 0;
-  color: #555;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.confirm-footer {
-  padding: 15px 25px;
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  border-top: 1px solid #ecf0f1;
-}
 
 /* Code style for barcode */
 code {
@@ -2141,16 +2221,7 @@ kbd {
   font-size: 18px;
 }
 
-/* Badge Variants */
-.badge-category {
-  background-color: #e3f2fd;
-  color: #1565c0;
-}
 
-.badge-secondary {
-  background-color: #ecf0f1;
-  color: #7f8c8d;
-}
 
 /* Text Utilities */
 .text-danger {
@@ -2165,10 +2236,6 @@ kbd {
   color: #3498db !important;
 }
 
-/* Modal Extra Large */
-.modal-extra-large {
-  max-width: 900px;
-}
 
 /* Responsive */
 @media (max-width: 1200px) {
