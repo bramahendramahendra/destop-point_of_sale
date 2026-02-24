@@ -2130,6 +2130,14 @@ code {
   .kasir-right {
     max-width: 100%;
   }
+
+  .charts-container {
+    grid-template-columns: 1fr;
+  }
+
+  .cash-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 
