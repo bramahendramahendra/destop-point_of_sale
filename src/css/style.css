@@ -786,7 +786,7 @@ textarea:focus {
    LOGIN PAGE
    Halaman login dengan layout centered card
    ======================================== */
-   
+
 .login-page {
   display: flex;
   justify-content: center;
@@ -828,22 +828,6 @@ textarea:focus {
   margin-bottom: 20px;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 .login-footer {
   text-align: center;
   margin-top: 20px;
@@ -857,7 +841,12 @@ textarea:focus {
   color: #3498db;
 }
 
-/* Dashboard Layout */
+
+/* ========================================
+   DASHBOARD LAYOUT
+   Layout utama aplikasi: navbar, sidebar, main content
+   ======================================== */
+
 .dashboard-page {
   background-color: #f5f6fa;
 }
@@ -981,11 +970,7 @@ textarea:focus {
   padding: 30px;
 }
 
-/* ========================================
-   USERS PAGE STYLES
-   ======================================== */
-
-/* Content Header with Button */
+/* Content Header */
 .content-header {
   display: flex;
   justify-content: space-between;
@@ -999,17 +984,6 @@ textarea:focus {
   margin: 0;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 /* Action Buttons */
 .action-buttons {
   display: flex;
@@ -1018,7 +992,12 @@ textarea:focus {
   margin-top: 20px;
 }
 
-/* Welcome Card */
+
+/* ========================================
+   DASHBOARD HOME
+   Welcome card, stat cards, dan info developer
+   ======================================== */
+
 .welcome-card {
   background: white;
   padding: 30px;
@@ -1062,7 +1041,7 @@ textarea:focus {
   font-size: 14px;
 }
 
-/* Stats Container */
+/* Stats Cards */
 .stats-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1116,36 +1095,30 @@ textarea:focus {
   color: #95a5a6;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Code style for barcode */
-code {
-  background-color: #f8f9fa;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
-  color: #e74c3c;
+/* Stat Card Color Variants (Finance) */
+.stat-card-primary {
+  border-left: 4px solid #3498db;
 }
 
+.stat-card-danger {
+  border-left: 4px solid #e74c3c;
+}
+
+.stat-card-warning {
+  border-left: 4px solid #f39c12;
+}
+
+.stat-card-success {
+  border-left: 4px solid #27ae60;
+}
+
+
 /* ========================================
-   KASIR PAGE STYLES
+   KASIR (POS) PAGE
+   Layout, product search, cart, dan payment di halaman kasir
    ======================================== */
+
+/* Keyboard Hints */
 .keyboard-hints {
   display: flex;
   gap: 15px;
@@ -1186,6 +1159,33 @@ kbd {
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Code style for barcode */
+code {
+  background-color: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #e74c3c;
+}
+
+/* ========================================
+   KASIR PAGE STYLES
+   ======================================== */
 
 /* Product Search */
 .product-search-box {
@@ -1861,21 +1861,7 @@ kbd {
    ======================================== */
 
 /* Summary Cards Variants */
-.stat-card-primary {
-  border-left: 4px solid #3498db;
-}
 
-.stat-card-danger {
-  border-left: 4px solid #e74c3c;
-}
-
-.stat-card-warning {
-  border-left: 4px solid #f39c12;
-}
-
-.stat-card-success {
-  border-left: 4px solid #27ae60;
-}
 
 /* Quick Stats */
 .quick-stats {

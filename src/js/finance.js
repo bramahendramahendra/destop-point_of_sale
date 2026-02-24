@@ -1306,3 +1306,229 @@ function showPurchaseFormError(message) {
   errorDiv.textContent = message;
   errorDiv.style.display = 'block';
 }
+
+// Pay Purchase
+async function openPayPurchaseModal(purchaseId) {
+  try {
+    const result = await window.api.purchases.getById(purchaseId);
+
+    if (result.success) {
+      const purchase = result.purchase;
+
+      if (purchase.payment_status === 'paid') {
+        showToast('Pembelian sudah lunas', 'info');
+        return;
+      }
+
+      document.getElementById('payPurchaseId').value = purchase.id;
+      document.getElementById('payPurchaseCode').textContent = purchase.purchase_code;
+      document.getElementById('paySupplier').textContent = purchase.supplier_name || '-';
+      document.getElementById('payTotal').textContent = formatCurrency(purchase.total_amount);
+      document.getElementById('payAlreadyPaid').textContent = formatCurrency(purchase.paid_amount);
+      document.getElementById('payRemaining').textContent = formatCurrency(purchase.remaining_amount);
+
+      document.getElementById('payAmount').value = '';
+      document.getElementById('payAmount').max = purchase.remaining_amount;
+      document.getElementById('payPurchaseError').style.display = 'none';
+
+      document.getElementById('payPurchaseModal').style.display = 'flex';
+
+      setTimeout(() => {
+        document.getElementById('payAmount').focus();
+      }, 100);
+    } else {
+      showToast('Gagal memuat data pembelian', 'error');
+    }
+  } catch (error) {
+    console.error('Open pay purchase modal error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function closePayPurchaseModal() {
+  document.getElementById('payPurchaseModal').style.display = 'none';
+}
+
+async function handlePayPurchase(e) {
+  e.preventDefault();
+
+  const purchaseId = parseInt(document.getElementById('payPurchaseId').value);
+  const amount = parseFloat(document.getElementById('payAmount').value) || 0;
+  const remaining = parseCurrency(document.getElementById('payRemaining').textContent);
+
+  if (amount <= 0) {
+    showPayPurchaseError('Jumlah bayar harus lebih dari 0');
+    return;
+  }
+
+  if (amount > remaining) {
+    showPayPurchaseError('Jumlah bayar melebihi sisa hutang');
+    return;
+  }
+
+  showConfirm(
+    'Konfirmasi Pembayaran',
+    `Yakin ingin membayar ${formatCurrency(amount)} untuk pembelian ini?`,
+    async () => {
+      await processPurchasePayment(purchaseId, amount);
+    }
+  );
+}
+
+async function processPurchasePayment(purchaseId, amount) {
+  try {
+    const result = await window.api.purchases.pay(purchaseId, amount);
+
+    if (result.success) {
+      closePayPurchaseModal();
+      await loadPurchases();
+      showToast('Pembayaran berhasil diproses', 'success');
+    } else {
+      showPayPurchaseError(result.message || 'Gagal memproses pembayaran');
+    }
+  } catch (error) {
+    console.error('Process purchase payment error:', error);
+    showPayPurchaseError('Terjadi kesalahan saat memproses pembayaran');
+  }
+}
+
+function showPayPurchaseError(message) {
+  const errorDiv = document.getElementById('payPurchaseError');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+}
+
+// Detail Purchase
+async function openDetailPurchase(purchaseId) {
+  try {
+    const result = await window.api.purchases.getById(purchaseId);
+
+    if (result.success) {
+      displayPurchaseDetail(result.purchase);
+      document.getElementById('detailPurchaseModal').style.display = 'flex';
+    } else {
+      showToast('Gagal memuat detail pembelian', 'error');
+    }
+  } catch (error) {
+    console.error('Open detail purchase error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function displayPurchaseDetail(purchase) {
+  const container = document.getElementById('purchaseDetailContent');
+
+  container.innerHTML = `
+    <div class="detail-section">
+      <h3>Informasi Pembelian</h3>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Kode PO:</span>
+          <strong><code>${escapeHtml(purchase.purchase_code)}</code></strong>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Tanggal:</span>
+          <strong>${formatDateOnly(purchase.purchase_date)}</strong>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Supplier:</span>
+          <strong>${escapeHtml(purchase.supplier_name || '-')}</strong>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">User:</span>
+          <strong>${escapeHtml(purchase.user_name)}</strong>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Status Bayar:</span>
+          <span class="badge ${getPaymentStatusClass(purchase.payment_status)}">
+            ${getPaymentStatusLabel(purchase.payment_status)}
+          </span>
+        </div>
+        ${purchase.notes ? `
+        <div class="detail-item">
+          <span class="detail-label">Catatan:</span>
+          <span>${escapeHtml(purchase.notes)}</span>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Item Pembelian</h3>
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Produk</th>
+            <th>Qty</th>
+            <th>Satuan</th>
+            <th>Harga Beli</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${purchase.items.map((item, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${escapeHtml(item.product_name)}</td>
+              <td>${item.quantity}</td>
+              <td>${item.unit}</td>
+              <td>${formatCurrency(item.purchase_price)}</td>
+              <td><strong>${formatCurrency(item.subtotal)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="detail-section">
+      <div class="payment-detail">
+        <div class="payment-row total-row">
+          <span>Total Pembelian:</span>
+          <strong>${formatCurrency(purchase.total_amount)}</strong>
+        </div>
+        <div class="payment-row">
+          <span>Sudah Dibayar:</span>
+          <strong class="text-success">${formatCurrency(purchase.paid_amount)}</strong>
+        </div>
+        <div class="payment-row">
+          <span>Sisa Hutang:</span>
+          <strong class="${purchase.remaining_amount > 0 ? 'text-danger' : 'text-success'}">
+            ${formatCurrency(purchase.remaining_amount)}
+          </strong>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function closeDetailPurchaseModal() {
+  document.getElementById('detailPurchaseModal').style.display = 'none';
+}
+
+// Delete Purchase
+function confirmDeletePurchase(purchaseId, purchaseCode) {
+  showConfirm(
+    'Konfirmasi Hapus',
+    `Yakin ingin menghapus pembelian "${purchaseCode}"? Stok produk akan dikembalikan.`,
+    async () => {
+      await deletePurchase(purchaseId);
+    }
+  );
+}
+
+async function deletePurchase(purchaseId) {
+  try {
+    const result = await window.api.purchases.delete(purchaseId);
+
+    if (result.success) {
+      await loadPurchases();
+      showToast('Pembelian berhasil dihapus', 'success');
+    } else {
+      showToast(result.message || 'Gagal menghapus pembelian', 'error');
+    }
+  } catch (error) {
+    console.error('Delete purchase error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
