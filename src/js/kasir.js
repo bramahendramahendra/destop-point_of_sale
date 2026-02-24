@@ -424,6 +424,7 @@ async function processTransaction() {
   }
 
   const transactionCode = generateTransactionCode();
+  const paymentMethod = document.getElementById('paymentMethod').value;
   
   // Ensure all cart items have complete data
   const items = cart.map(item => ({
@@ -447,7 +448,7 @@ async function processTransaction() {
     tax_percent: currentTax.percent || 0,
     tax_amount: currentTax.amount || 0,
     total_amount: total,
-    payment_method: document.getElementById('paymentMethod').value,
+    payment_method: paymentMethod,
     payment_amount: paymentAmount,
     change_amount: paymentAmount - total,
     customer_name: document.getElementById('customerName').value.trim() || '',
@@ -466,6 +467,17 @@ async function processTransaction() {
     const result = await window.api.transactions.create(transactionData);
 
     if (result.success) {
+      // Update cash drawer if payment is cash
+      if (paymentMethod === 'cash') {
+        try {
+          await window.api.cashDrawer.updateSales(total);
+          console.log('Cash drawer updated');
+        } catch (error) {
+          console.error('Failed to update cash drawer:', error);
+          // Don't block transaction if cash drawer update fails
+        }
+      }
+
       showToast('Transaksi berhasil disimpan!', 'success');
       
       // Close modal

@@ -58,7 +58,7 @@ Gunakan kredensial berikut untuk login pertama kali:
 - ✅ **STEP 2: User Management** - DONE
 - ✅ **STEP 3: Category & Product Management** - DONE
 - ✅ **STEP 4: Kasir & Transaksi** - DONE
-- ⏳ STEP 5: Finance - Coming Soon
+- ✅ **STEP 5: Keuangan - Kas, Pengeluaran, Pembelian** - DONE
 - ⏳ STEP 6: Reports - Coming Soon
 
 ## Testing Step 1
@@ -177,6 +177,88 @@ Lakukan testing dengan langkah berikut:
 1. ✅ Setiap transaksi penjualan → stock berkurang
 2. ✅ Setiap void transaksi → stock dikembalikan
 3. ✅ Stock mutations tercatat di database (cek dengan SQL viewer)
+
+## Testing Step 5
+
+### Setup:
+1. ✅ Hapus database lama: `rm pos-retail.db`
+2. ✅ Restart aplikasi: `npm start`
+3. ✅ Login dengan admin/admin123
+
+### Kas Harian:
+1. ✅ Klik menu "Keuangan"
+2. ✅ Tab "Kas Harian" → Tampil tombol "Buka Kas"
+3. ✅ Klik "Buka Kas" → Modal terbuka
+4. ✅ Input saldo awal Rp 1.000.000 → Simpan
+5. ✅ Status kas berubah jadi "Kas Terbuka" dengan info lengkap
+6. ✅ Coba buka kas lagi → Error "Kas sudah dibuka hari ini"
+7. ✅ Lakukan 2-3 transaksi penjualan dengan metode Cash
+8. ✅ Cek status kas → Total penjualan cash bertambah
+9. ✅ Tab "Pengeluaran" → Tambah pengeluaran (Cash, Rp 50.000)
+10. ✅ Kembali ke "Kas Harian" → Total pengeluaran bertambah
+11. ✅ Expected balance auto-calculate dengan benar
+12. ✅ Klik "Tutup Kas" → Modal tutup kas terbuka
+13. ✅ Input saldo akhir aktual (sama dengan expected)
+14. ✅ Selisih = Rp 0 (hijau) → Simpan
+15. ✅ Status kas berubah jadi "Closed"
+16. ✅ History kas tampil di tabel
+
+### Pengeluaran:
+1. ✅ Tab "Pengeluaran" → Klik "Tambah Pengeluaran"
+2. ✅ Pilih kategori: Operasional
+3. ✅ Isi deskripsi: "Beli pulsa"
+4. ✅ Isi jumlah: Rp 50.000
+5. ✅ Pilih metode: Cash → Simpan
+6. ✅ Pengeluaran muncul di tabel
+7. ✅ Total pengeluaran terupdate
+8. ✅ Edit pengeluaran → Update berhasil
+9. ✅ Filter by kategori → Berfungsi
+10. ✅ Filter by date range → Berfungsi
+11. ✅ Hapus pengeluaran → Konfirmasi → Terhapus
+
+### Pembelian:
+1. ✅ Tab "Pembelian" → Klik "Tambah Pembelian"
+2. ✅ Kode PO auto-generate (PO-YYYYMMDD-XXXX)
+3. ✅ Input supplier: "Supplier ABC"
+4. ✅ Klik "Tambah Item" → Modal item terbuka
+5. ✅ Pilih produk: "Air Mineral 600ml"
+6. ✅ Input qty: 100 → Harga beli auto-fill
+7. ✅ Subtotal auto-calculate → Klik Tambah
+8. ✅ Item muncul di tabel
+9. ✅ Tambah 2-3 item lagi
+10. ✅ Total pembelian auto-sum
+11. ✅ Pilih status bayar: "Belum Bayar" → Simpan
+12. ✅ Pembelian muncul di tabel
+13. ✅ Cek halaman Produk → Stock bertambah sesuai qty
+14. ✅ Klik "Detail" → Modal detail terbuka dengan items
+15. ✅ Klik "Bayar" → Modal bayar terbuka
+16. ✅ Input jumlah bayar (sebagian) → Proses
+17. ✅ Status berubah jadi "Bayar Sebagian"
+18. ✅ Sisa hutang terupdate
+19. ✅ Bayar lagi sampai lunas → Status jadi "Lunas"
+20. ✅ Filter by status → Berfungsi
+
+### Dashboard Keuangan:
+1. ✅ Tab "Dashboard Keuangan"
+2. ✅ Summary cards tampil dengan data real:
+   - Total Pendapatan
+   - Total Pengeluaran
+   - Laba Kotor
+   - Laba Bersih
+3. ✅ Quick stats tampil (total transaksi, avg, COGS)
+4. ✅ Top 10 produk terlaris tampil dengan benar
+5. ✅ Filter by date range → Data terupdate
+6. ✅ Chart area tampil (placeholder atau data real)
+
+### Integration Test:
+1. ✅ Buka kas hari baru (ganti tanggal sistem)
+2. ✅ Harus bisa buka kas lagi (karena hari baru)
+3. ✅ Transaksi cash hari ini update kas yang baru
+4. ✅ Pengeluaran hari ini update kas yang baru
+5. ✅ Hapus pembelian → Stock dikembalikan
+6. ✅ Stock mutations tercatat dengan benar
+
+
 
 ## Struktur Folder
 ```

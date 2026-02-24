@@ -901,6 +901,870 @@ ipcMain.handle('transactions:void', async (event, id) => {
   }
 });
 
+// ============================================
+// CASH DRAWER IPC HANDLERS
+// ============================================
+
+// Get current open cash drawer for logged in user
+ipcMain.handle('cashDrawer:getCurrent', async (event) => {
+  try {
+    if (!currentUser) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    const cashDrawer = dbModule.get(`
+      SELECT * FROM cash_drawer 
+      WHERE user_id = ? 
+      AND DATE(open_time) = DATE(?) 
+      AND status = 'open'
+      ORDER BY open_time DESC 
+      LIMIT 1
+    `, [currentUser.id, today]);
+    
+    return { success: true, cashDrawer: cashDrawer || null };
+  } catch (error) {
+    console.error('Get current cash drawer error:', error);
+    return { success: false, message: 'Gagal memuat data kas' };
+  }
+});
+
+// Open cash drawer
+ipcMain.handle('cashDrawer:open', async (event, data) => {
+  try {
+    if (!currentUser) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check if already opened today
+    const existing = dbModule.get(`
+      SELECT id FROM cash_drawer 
+      WHERE user_id = ? 
+      AND DATE(open_time) = DATE(?) 
+      AND status = 'open'
+    `, [currentUser.id, today]);
+
+    if (existing) {
+      return { success: false, message: 'Kas sudah dibuka hari ini' };
+    }
+
+    // Insert new cash drawer
+    dbModule.run(
+      `INSERT INTO cash_drawer (
+        user_id, open_time, opening_balance, status, notes
+      ) VALUES (?, ?, ?, 'open', ?)`,
+      [currentUser.id, new Date().toISOString(), data.opening_balance, data.notes || '']
+    );
+
+    // Get inserted cash drawer
+    const cashDrawer = dbModule.get(
+      'SELECT * FROM cash_drawer WHERE user_id = ? AND status = ? ORDER BY open_time DESC LIMIT 1',
+      [currentUser.id, 'open']
+    );
+
+    console.log('Cash drawer opened successfully');
+    return { success: true, cashDrawer };
+  } catch (error) {
+    console.error('Open cash drawer error:', error);
+    return { success: false, message: 'Gagal membuka kas' };
+  }
+});
+
+// Close cash drawer
+ipcMain.handle('cashDrawer:close', async (event, id, data) => {
+  try {
+    const cashDrawer = dbModule.get('SELECT * FROM cash_drawer WHERE id = ?', [id]);
+
+    if (!cashDrawer) {
+      return { success: false, message: 'Kas tidak ditemukan' };
+    }
+
+    if (cashDrawer.status === 'closed') {
+      return { success: false, message: 'Kas sudah ditutup' };
+    }
+
+    // Calculate expected balance
+    const expected = cashDrawer.opening_balance + cashDrawer.total_cash_sales - cashDrawer.total_expenses;
+    const difference = data.closing_balance - expected;
+
+    dbModule.run(
+      `UPDATE cash_drawer 
+       SET close_time = ?, closing_balance = ?, expected_balance = ?, 
+           difference = ?, status = 'closed', notes = ?
+       WHERE id = ?`,
+      [
+        new Date().toISOString(),
+        data.closing_balance,
+        expected,
+        difference,
+        data.notes || '',
+        id
+      ]
+    );
+
+    console.log('Cash drawer closed successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Close cash drawer error:', error);
+    return { success: false, message: 'Gagal menutup kas' };
+  }
+});
+
+// Get cash drawer history
+ipcMain.handle('cashDrawer:getHistory', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT cd.*, u.full_name as cashier_name
+      FROM cash_drawer cd
+      LEFT JOIN users u ON cd.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (filters.startDate) {
+      sql += ' AND DATE(cd.open_time) >= DATE(?)';
+      params.push(filters.startDate);
+    }
+
+    if (filters.endDate) {
+      sql += ' AND DATE(cd.open_time) <= DATE(?)';
+      params.push(filters.endDate);
+    }
+
+    if (filters.userId) {
+      sql += ' AND cd.user_id = ?';
+      params.push(filters.userId);
+    }
+
+    if (filters.status) {
+      sql += ' AND cd.status = ?';
+      params.push(filters.status);
+    }
+
+    sql += ' ORDER BY cd.open_time DESC';
+
+    const history = dbModule.all(sql, params);
+    
+    return { success: true, history };
+  } catch (error) {
+    console.error('Get cash drawer history error:', error);
+    return { success: false, message: 'Gagal memuat riwayat kas' };
+  }
+});
+
+// Get cash drawer by ID with details
+ipcMain.handle('cashDrawer:getById', async (event, id) => {
+  try {
+    const cashDrawer = dbModule.get(`
+      SELECT cd.*, u.full_name as cashier_name
+      FROM cash_drawer cd
+      LEFT JOIN users u ON cd.user_id = u.id
+      WHERE cd.id = ?
+    `, [id]);
+
+    if (!cashDrawer) {
+      return { success: false, message: 'Kas tidak ditemukan' };
+    }
+
+    // Get cash transactions for that day
+    const date = cashDrawer.open_time.split('T')[0];
+    const transactions = dbModule.all(`
+      SELECT * FROM transactions
+      WHERE DATE(transaction_date) = DATE(?)
+      AND payment_method = 'cash'
+      AND status = 'completed'
+      AND user_id = ?
+      ORDER BY transaction_date DESC
+    `, [date, cashDrawer.user_id]);
+
+    // Get expenses for that day
+    const expenses = dbModule.all(`
+      SELECT * FROM expenses
+      WHERE DATE(expense_date) = DATE(?)
+      AND user_id = ?
+      ORDER BY expense_date DESC
+    `, [date, cashDrawer.user_id]);
+
+    cashDrawer.transactions = transactions;
+    cashDrawer.expenses = expenses;
+
+    return { success: true, cashDrawer };
+  } catch (error) {
+    console.error('Get cash drawer by ID error:', error);
+    return { success: false, message: 'Gagal memuat detail kas' };
+  }
+});
+
+// Update cash sales (called when transaction is completed)
+ipcMain.handle('cashDrawer:updateSales', async (event, amount) => {
+  try {
+    if (!currentUser) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get today's open cash drawer
+    const cashDrawer = dbModule.get(`
+      SELECT id FROM cash_drawer 
+      WHERE user_id = ? 
+      AND DATE(open_time) = DATE(?) 
+      AND status = 'open'
+    `, [currentUser.id, today]);
+
+    if (cashDrawer) {
+      dbModule.run(
+        `UPDATE cash_drawer 
+         SET total_sales = total_sales + ?,
+             total_cash_sales = total_cash_sales + ?
+         WHERE id = ?`,
+        [amount, amount, cashDrawer.id]
+      );
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update cash sales error:', error);
+    return { success: false };
+  }
+});
+
+// Update expenses (called when expense is created)
+ipcMain.handle('cashDrawer:updateExpenses', async (event, amount) => {
+  try {
+    if (!currentUser) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get today's open cash drawer
+    const cashDrawer = dbModule.get(`
+      SELECT id FROM cash_drawer 
+      WHERE user_id = ? 
+      AND DATE(open_time) = DATE(?) 
+      AND status = 'open'
+    `, [currentUser.id, today]);
+
+    if (cashDrawer) {
+      dbModule.run(
+        'UPDATE cash_drawer SET total_expenses = total_expenses + ? WHERE id = ?',
+        [amount, cashDrawer.id]
+      );
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update expenses error:', error);
+    return { success: false };
+  }
+});
+
+// ============================================
+// EXPENSES IPC HANDLERS
+// ============================================
+
+// Get all expenses with filters
+ipcMain.handle('expenses:getAll', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT e.*, u.full_name as user_name
+      FROM expenses e
+      LEFT JOIN users u ON e.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (filters.startDate) {
+      sql += ' AND DATE(e.expense_date) >= DATE(?)';
+      params.push(filters.startDate);
+    }
+
+    if (filters.endDate) {
+      sql += ' AND DATE(e.expense_date) <= DATE(?)';
+      params.push(filters.endDate);
+    }
+
+    if (filters.category) {
+      sql += ' AND e.category = ?';
+      params.push(filters.category);
+    }
+
+    sql += ' ORDER BY e.expense_date DESC, e.created_at DESC';
+
+    const expenses = dbModule.all(sql, params);
+    
+    return { success: true, expenses };
+  } catch (error) {
+    console.error('Get all expenses error:', error);
+    return { success: false, message: 'Gagal memuat data pengeluaran' };
+  }
+});
+
+// Get expense by ID
+ipcMain.handle('expenses:getById', async (event, id) => {
+  try {
+    const expense = dbModule.get('SELECT * FROM expenses WHERE id = ?', [id]);
+    
+    if (!expense) {
+      return { success: false, message: 'Pengeluaran tidak ditemukan' };
+    }
+    
+    return { success: true, expense };
+  } catch (error) {
+    console.error('Get expense by ID error:', error);
+    return { success: false, message: 'Gagal memuat data pengeluaran' };
+  }
+});
+
+// Create expense
+ipcMain.handle('expenses:create', async (event, expenseData) => {
+  try {
+    if (!currentUser) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    dbModule.run(
+      `INSERT INTO expenses (
+        expense_date, category, description, amount, 
+        payment_method, user_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        expenseData.expense_date,
+        expenseData.category,
+        expenseData.description,
+        expenseData.amount,
+        expenseData.payment_method || '',
+        currentUser.id,
+        expenseData.notes || ''
+      ]
+    );
+
+    // Update cash drawer if payment is cash and today
+    if (expenseData.payment_method === 'cash') {
+      const today = new Date().toISOString().split('T')[0];
+      const expenseDate = expenseData.expense_date.split('T')[0];
+      
+      if (today === expenseDate) {
+        await ipcMain.emit('cashDrawer:updateExpenses', event, expenseData.amount);
+      }
+    }
+
+    console.log('Expense created successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Create expense error:', error);
+    return { success: false, message: 'Gagal menambahkan pengeluaran' };
+  }
+});
+
+// Update expense
+ipcMain.handle('expenses:update', async (event, id, expenseData) => {
+  try {
+    dbModule.run(
+      `UPDATE expenses 
+       SET expense_date = ?, category = ?, description = ?, 
+           amount = ?, payment_method = ?, notes = ?
+       WHERE id = ?`,
+      [
+        expenseData.expense_date,
+        expenseData.category,
+        expenseData.description,
+        expenseData.amount,
+        expenseData.payment_method || '',
+        expenseData.notes || '',
+        id
+      ]
+    );
+
+    console.log('Expense updated successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Update expense error:', error);
+    return { success: false, message: 'Gagal mengupdate pengeluaran' };
+  }
+});
+
+// Delete expense
+ipcMain.handle('expenses:delete', async (event, id) => {
+  try {
+    dbModule.run('DELETE FROM expenses WHERE id = ?', [id]);
+
+    console.log('Expense deleted successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Delete expense error:', error);
+    return { success: false, message: 'Gagal menghapus pengeluaran' };
+  }
+});
+
+// ============================================
+// PURCHASES IPC HANDLERS
+// ============================================
+
+// Get all purchases with filters
+ipcMain.handle('purchases:getAll', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT p.*, u.full_name as user_name
+      FROM purchases p
+      LEFT JOIN users u ON p.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (filters.startDate) {
+      sql += ' AND DATE(p.purchase_date) >= DATE(?)';
+      params.push(filters.startDate);
+    }
+
+    if (filters.endDate) {
+      sql += ' AND DATE(p.purchase_date) <= DATE(?)';
+      params.push(filters.endDate);
+    }
+
+    if (filters.paymentStatus) {
+      sql += ' AND p.payment_status = ?';
+      params.push(filters.paymentStatus);
+    }
+
+    if (filters.supplier) {
+      sql += ' AND p.supplier_name LIKE ?';
+      params.push(`%${filters.supplier}%`);
+    }
+
+    sql += ' ORDER BY p.purchase_date DESC, p.created_at DESC';
+
+    const purchases = dbModule.all(sql, params);
+    
+    return { success: true, purchases };
+  } catch (error) {
+    console.error('Get all purchases error:', error);
+    return { success: false, message: 'Gagal memuat data pembelian' };
+  }
+});
+
+// Get purchase by ID with items
+ipcMain.handle('purchases:getById', async (event, id) => {
+  try {
+    const purchase = dbModule.get(`
+      SELECT p.*, u.full_name as user_name
+      FROM purchases p
+      LEFT JOIN users u ON p.user_id = u.id
+      WHERE p.id = ?
+    `, [id]);
+    
+    if (!purchase) {
+      return { success: false, message: 'Pembelian tidak ditemukan' };
+    }
+
+    // Get purchase items
+    const items = dbModule.all(
+      'SELECT * FROM purchase_items WHERE purchase_id = ?',
+      [id]
+    );
+
+    purchase.items = items;
+    
+    return { success: true, purchase };
+  } catch (error) {
+    console.error('Get purchase by ID error:', error);
+    return { success: false, message: 'Gagal memuat data pembelian' };
+  }
+});
+
+// Create purchase
+ipcMain.handle('purchases:create', async (event, purchaseData) => {
+  try {
+    if (!currentUser) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    console.log('Creating purchase:', purchaseData.purchase_code);
+
+    // Check if purchase code already exists
+    const existing = dbModule.get(
+      'SELECT id FROM purchases WHERE purchase_code = ?',
+      [purchaseData.purchase_code]
+    );
+
+    if (existing) {
+      return { success: false, message: 'Kode pembelian sudah ada' };
+    }
+
+    // Calculate remaining amount
+    const remaining = purchaseData.total_amount - purchaseData.paid_amount;
+
+    // Insert purchase
+    dbModule.run(
+      `INSERT INTO purchases (
+        purchase_code, supplier_name, purchase_date, total_amount,
+        payment_status, paid_amount, remaining_amount, user_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        purchaseData.purchase_code,
+        purchaseData.supplier_name || '',
+        purchaseData.purchase_date,
+        purchaseData.total_amount,
+        purchaseData.payment_status,
+        purchaseData.paid_amount,
+        remaining,
+        currentUser.id,
+        purchaseData.notes || ''
+      ]
+    );
+
+    // Get inserted purchase ID
+    const insertedPurchase = dbModule.get(
+      'SELECT id FROM purchases WHERE purchase_code = ?',
+      [purchaseData.purchase_code]
+    );
+
+    if (!insertedPurchase) {
+      throw new Error('Failed to retrieve inserted purchase');
+    }
+
+    const purchaseId = insertedPurchase.id;
+    console.log('Purchase inserted with ID:', purchaseId);
+
+    // Insert purchase items and update stock
+    for (const item of purchaseData.items) {
+      console.log('Processing item:', item.product_name);
+
+      // Insert purchase item
+      dbModule.run(
+        `INSERT INTO purchase_items (
+          purchase_id, product_id, product_name, quantity, unit, purchase_price, subtotal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          purchaseId,
+          item.product_id,
+          item.product_name,
+          item.quantity,
+          item.unit,
+          item.purchase_price,
+          item.subtotal
+        ]
+      );
+
+      // Update product stock
+      dbModule.run(
+        'UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [item.quantity, item.product_id]
+      );
+
+      // Create stock mutation
+      dbModule.run(
+        `INSERT INTO stock_mutations (
+          product_id, mutation_type, quantity, reference_type, reference_id, notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item.product_id,
+          'in',
+          item.quantity,
+          'purchase',
+          purchaseId,
+          `Pembelian ${purchaseData.purchase_code}`,
+          currentUser.id
+        ]
+      );
+
+      console.log('Item processed successfully:', item.product_name);
+    }
+
+    console.log('Purchase created successfully:', purchaseData.purchase_code);
+    return { success: true, purchaseId };
+  } catch (error) {
+    console.error('Create purchase error:', error);
+    return { success: false, message: 'Gagal menyimpan pembelian: ' + error.message };
+  }
+});
+
+// Update purchase
+ipcMain.handle('purchases:update', async (event, id, purchaseData) => {
+  try {
+    console.log('Updating purchase:', id);
+
+    // Check if purchase has payments
+    const purchase = dbModule.get('SELECT paid_amount FROM purchases WHERE id = ?', [id]);
+    
+    if (purchase && purchase.paid_amount > 0) {
+      return { success: false, message: 'Tidak dapat mengubah pembelian yang sudah ada pembayaran' };
+    }
+
+    // Calculate remaining amount
+    const remaining = purchaseData.total_amount - purchaseData.paid_amount;
+
+    dbModule.run(
+      `UPDATE purchases 
+       SET supplier_name = ?, purchase_date = ?, total_amount = ?,
+           payment_status = ?, paid_amount = ?, remaining_amount = ?, notes = ?
+       WHERE id = ?`,
+      [
+        purchaseData.supplier_name || '',
+        purchaseData.purchase_date,
+        purchaseData.total_amount,
+        purchaseData.payment_status,
+        purchaseData.paid_amount,
+        remaining,
+        purchaseData.notes || '',
+        id
+      ]
+    );
+
+    console.log('Purchase updated successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Update purchase error:', error);
+    return { success: false, message: 'Gagal mengupdate pembelian' };
+  }
+});
+
+// Delete purchase
+ipcMain.handle('purchases:delete', async (event, id) => {
+  try {
+    console.log('Deleting purchase:', id);
+
+    // Check if purchase has payments
+    const purchase = dbModule.get('SELECT * FROM purchases WHERE id = ?', [id]);
+    
+    if (!purchase) {
+      return { success: false, message: 'Pembelian tidak ditemukan' };
+    }
+
+    if (purchase.paid_amount > 0) {
+      return { success: false, message: 'Tidak dapat menghapus pembelian yang sudah ada pembayaran' };
+    }
+
+    // Get purchase items to restore stock
+    const items = dbModule.all('SELECT * FROM purchase_items WHERE purchase_id = ?', [id]);
+
+    // Restore stock for each item
+    for (const item of items) {
+      dbModule.run(
+        'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [item.quantity, item.product_id]
+      );
+
+      // Create stock mutation
+      dbModule.run(
+        `INSERT INTO stock_mutations (
+          product_id, mutation_type, quantity, reference_type, reference_id, notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item.product_id,
+          'out',
+          item.quantity,
+          'purchase_delete',
+          id,
+          `Hapus pembelian ${purchase.purchase_code}`,
+          currentUser ? currentUser.id : null
+        ]
+      );
+    }
+
+    // Delete purchase items
+    dbModule.run('DELETE FROM purchase_items WHERE purchase_id = ?', [id]);
+
+    // Delete purchase
+    dbModule.run('DELETE FROM purchases WHERE id = ?', [id]);
+
+    console.log('Purchase deleted successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Delete purchase error:', error);
+    return { success: false, message: 'Gagal menghapus pembelian' };
+  }
+});
+
+// Pay purchase
+ipcMain.handle('purchases:pay', async (event, id, amount) => {
+  try {
+    console.log('Processing payment for purchase:', id);
+
+    const purchase = dbModule.get('SELECT * FROM purchases WHERE id = ?', [id]);
+    
+    if (!purchase) {
+      return { success: false, message: 'Pembelian tidak ditemukan' };
+    }
+
+    if (purchase.payment_status === 'paid') {
+      return { success: false, message: 'Pembelian sudah lunas' };
+    }
+
+    if (amount > purchase.remaining_amount) {
+      return { success: false, message: 'Jumlah bayar melebihi sisa hutang' };
+    }
+
+    // Calculate new values
+    const newPaidAmount = purchase.paid_amount + amount;
+    const newRemainingAmount = purchase.total_amount - newPaidAmount;
+    
+    let newStatus = 'partial';
+    if (newRemainingAmount === 0) {
+      newStatus = 'paid';
+    } else if (newPaidAmount === 0) {
+      newStatus = 'unpaid';
+    }
+
+    // Update purchase
+    dbModule.run(
+      `UPDATE purchases 
+       SET paid_amount = ?, remaining_amount = ?, payment_status = ?
+       WHERE id = ?`,
+      [newPaidAmount, newRemainingAmount, newStatus, id]
+    );
+
+    console.log('Payment processed successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Pay purchase error:', error);
+    return { success: false, message: 'Gagal memproses pembayaran' };
+  }
+});
+
+// ============================================
+// FINANCE DASHBOARD IPC HANDLERS
+// ============================================
+
+// Get finance dashboard data
+ipcMain.handle('finance:getDashboard', async (event, filters = {}) => {
+  try {
+    const startDate = filters.startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    const endDate = filters.endDate || new Date().toISOString().split('T')[0];
+
+    // Get sales summary
+    const salesData = dbModule.get(`
+      SELECT 
+        COUNT(*) as total_transactions,
+        SUM(total_amount) as total_sales,
+        SUM(subtotal) as total_revenue,
+        AVG(total_amount) as avg_transaction
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+      AND status = 'completed'
+    `, [startDate, endDate]);
+
+    // Get expenses summary
+    const expensesData = dbModule.get(`
+      SELECT 
+        COUNT(*) as total_expenses_count,
+        SUM(amount) as total_expenses
+      FROM expenses
+      WHERE DATE(expense_date) BETWEEN DATE(?) AND DATE(?)
+    `, [startDate, endDate]);
+
+    // Get purchases summary (for calculating COGS)
+    const purchasesData = dbModule.get(`
+      SELECT 
+        SUM(total_amount) as total_purchases
+      FROM purchases
+      WHERE DATE(purchase_date) BETWEEN DATE(?) AND DATE(?)
+    `, [startDate, endDate]);
+
+    // Calculate COGS (Cost of Goods Sold) from transaction items
+    const cogsData = dbModule.get(`
+      SELECT 
+        SUM(ti.quantity * p.purchase_price) as cogs
+      FROM transaction_items ti
+      INNER JOIN transactions t ON ti.transaction_id = t.id
+      INNER JOIN products p ON ti.product_id = p.id
+      WHERE DATE(t.transaction_date) BETWEEN DATE(?) AND DATE(?)
+      AND t.status = 'completed'
+    `, [startDate, endDate]);
+
+    const totalSales = salesData.total_sales || 0;
+    const totalExpenses = expensesData.total_expenses || 0;
+    const cogs = cogsData.cogs || 0;
+    const grossProfit = totalSales - cogs;
+    const netProfit = grossProfit - totalExpenses;
+
+    const dashboard = {
+      total_sales: totalSales,
+      total_expenses: totalExpenses,
+      gross_profit: grossProfit,
+      net_profit: netProfit,
+      total_transactions: salesData.total_transactions || 0,
+      avg_transaction: salesData.avg_transaction || 0,
+      total_purchases: purchasesData.total_purchases || 0,
+      cogs: cogs
+    };
+
+    // Get daily sales and expenses for chart
+    const dailyData = dbModule.all(`
+      SELECT 
+        DATE(transaction_date) as date,
+        SUM(total_amount) as sales,
+        0 as expenses
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+      AND status = 'completed'
+      GROUP BY DATE(transaction_date)
+      
+      UNION ALL
+      
+      SELECT 
+        DATE(expense_date) as date,
+        0 as sales,
+        SUM(amount) as expenses
+      FROM expenses
+      WHERE DATE(expense_date) BETWEEN DATE(?) AND DATE(?)
+      GROUP BY DATE(expense_date)
+      
+      ORDER BY date
+    `, [startDate, endDate, startDate, endDate]);
+
+    // Aggregate daily data
+    const chartData = {};
+    dailyData.forEach(row => {
+      if (!chartData[row.date]) {
+        chartData[row.date] = { date: row.date, sales: 0, expenses: 0 };
+      }
+      chartData[row.date].sales += row.sales;
+      chartData[row.date].expenses += row.expenses;
+    });
+
+    dashboard.chart_data = Object.values(chartData);
+
+    return { success: true, dashboard };
+  } catch (error) {
+    console.error('Get finance dashboard error:', error);
+    return { success: false, message: 'Gagal memuat dashboard keuangan' };
+  }
+});
+
+// Get top selling products
+ipcMain.handle('finance:getTopProducts', async (event, filters = {}) => {
+  try {
+    const startDate = filters.startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    const endDate = filters.endDate || new Date().toISOString().split('T')[0];
+    const limit = filters.limit || 10;
+
+    const topProducts = dbModule.all(`
+      SELECT 
+        ti.product_name,
+        SUM(ti.quantity) as total_quantity,
+        SUM(ti.subtotal) as total_sales,
+        COUNT(DISTINCT ti.transaction_id) as transaction_count
+      FROM transaction_items ti
+      INNER JOIN transactions t ON ti.transaction_id = t.id
+      WHERE DATE(t.transaction_date) BETWEEN DATE(?) AND DATE(?)
+      AND t.status = 'completed'
+      GROUP BY ti.product_id, ti.product_name
+      ORDER BY total_quantity DESC
+      LIMIT ?
+    `, [startDate, endDate, limit]);
+
+    return { success: true, topProducts };
+  } catch (error) {
+    console.error('Get top products error:', error);
+    return { success: false, message: 'Gagal memuat produk terlaris' };
+  }
+});
+
 // Open receipt window
 ipcMain.on('window:openReceipt', (event, transactionId) => {
   const receiptWindow = new BrowserWindow({

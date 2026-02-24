@@ -130,6 +130,90 @@ async function initDatabase() {
   run(createStockMutationsTable);
   console.log('Stock mutations table created successfully');
 
+  // Create cash_drawer table
+  const createCashDrawerTable = `
+    CREATE TABLE IF NOT EXISTS cash_drawer (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      open_time DATETIME NOT NULL,
+      close_time DATETIME,
+      opening_balance REAL NOT NULL,
+      closing_balance REAL,
+      expected_balance REAL,
+      difference REAL,
+      total_sales REAL DEFAULT 0,
+      total_cash_sales REAL DEFAULT 0,
+      total_expenses REAL DEFAULT 0,
+      status TEXT DEFAULT 'open',
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+
+  run(createCashDrawerTable);
+  console.log('Cash drawer table created successfully');
+
+  // Create expenses table
+  const createExpensesTable = `
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      expense_date DATE NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT NOT NULL,
+      amount REAL NOT NULL,
+      payment_method TEXT,
+      user_id INTEGER NOT NULL,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+
+  run(createExpensesTable);
+  console.log('Expenses table created successfully');
+
+  // Create purchases table
+  const createPurchasesTable = `
+    CREATE TABLE IF NOT EXISTS purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_code TEXT UNIQUE NOT NULL,
+      supplier_name TEXT,
+      purchase_date DATE NOT NULL,
+      total_amount REAL NOT NULL,
+      payment_status TEXT DEFAULT 'unpaid',
+      paid_amount REAL DEFAULT 0,
+      remaining_amount REAL,
+      user_id INTEGER NOT NULL,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+
+  run(createPurchasesTable);
+  console.log('Purchases table created successfully');
+
+  // Create purchase_items table
+  const createPurchaseItemsTable = `
+    CREATE TABLE IF NOT EXISTS purchase_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      product_name TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      unit TEXT,
+      purchase_price REAL NOT NULL,
+      subtotal REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `;
+
+  run(createPurchaseItemsTable);
+  console.log('Purchase items table created successfully');
+
   // Check if admin user exists
   const adminExists = get('SELECT id FROM users WHERE username = ?', ['admin']);
 

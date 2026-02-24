@@ -37,6 +37,34 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('transactions:getById', id),
     void: (id) => ipcRenderer.invoke('transactions:void', id)
   },
+  cashDrawer: {
+    getCurrent: () => ipcRenderer.invoke('cashDrawer:getCurrent'),
+    open: (data) => ipcRenderer.invoke('cashDrawer:open', data),
+    close: (id, data) => ipcRenderer.invoke('cashDrawer:close', id, data),
+    getHistory: (filters) => ipcRenderer.invoke('cashDrawer:getHistory', filters),
+    getById: (id) => ipcRenderer.invoke('cashDrawer:getById', id),
+    updateSales: (amount) => ipcRenderer.invoke('cashDrawer:updateSales', amount),
+    updateExpenses: (amount) => ipcRenderer.invoke('cashDrawer:updateExpenses', amount)
+  },
+  expenses: {
+    getAll: (filters) => ipcRenderer.invoke('expenses:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('expenses:getById', id),
+    create: (expenseData) => ipcRenderer.invoke('expenses:create', expenseData),
+    update: (id, expenseData) => ipcRenderer.invoke('expenses:update', id, expenseData),
+    delete: (id) => ipcRenderer.invoke('expenses:delete', id)
+  },
+  purchases: {
+    getAll: (filters) => ipcRenderer.invoke('purchases:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('purchases:getById', id),
+    create: (purchaseData) => ipcRenderer.invoke('purchases:create', purchaseData),
+    update: (id, purchaseData) => ipcRenderer.invoke('purchases:update', id, purchaseData),
+    delete: (id) => ipcRenderer.invoke('purchases:delete', id),
+    pay: (id, amount) => ipcRenderer.invoke('purchases:pay', id, amount)
+  },
+  finance: {
+    getDashboard: (filters) => ipcRenderer.invoke('finance:getDashboard', filters),
+    getTopProducts: (filters) => ipcRenderer.invoke('finance:getTopProducts', filters)
+  },
   window: {
     loadLoginPage: () => ipcRenderer.send('load-login-page'),
     openReceipt: (transactionId) => ipcRenderer.send('window:openReceipt', transactionId)

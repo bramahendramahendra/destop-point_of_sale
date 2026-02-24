@@ -304,3 +304,86 @@ function parseCurrency(currencyString) {
 function formatNumber(number) {
   return new Intl.NumberFormat('id-ID').format(number);
 }
+
+// ============================================
+// FINANCE HELPER FUNCTIONS
+// ============================================
+
+// Generate purchase code: PO-YYYYMMDD-0001
+function generatePurchaseCode() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  
+  return `PO-${year}${month}${day}-${random}`;
+}
+
+// Get current month range
+function getCurrentMonthRange() {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  const startDate = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
+  const endDate = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+  
+  return { startDate, endDate };
+}
+
+// Get last N days range
+function getLastNDaysRange(days) {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  
+  const start = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+  const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+  
+  return { startDate: start, endDate: end };
+}
+
+// Format percentage
+function formatPercent(value) {
+  return `${value.toFixed(2)}%`;
+}
+
+// Calculate percentage change
+function calculatePercentageChange(current, previous) {
+  if (previous === 0) return 0;
+  return ((current - previous) / previous) * 100;
+}
+
+// Get payment status label
+function getPaymentStatusLabel(status) {
+  const labels = {
+    'paid': 'Lunas',
+    'unpaid': 'Belum Bayar',
+    'partial': 'Bayar Sebagian'
+  };
+  return labels[status] || status;
+}
+
+// Get payment status class
+function getPaymentStatusClass(status) {
+  const classes = {
+    'paid': 'badge-success',
+    'unpaid': 'badge-danger',
+    'partial': 'badge-warning'
+  };
+  return classes[status] || 'badge-secondary';
+}
+
+// Get expense categories
+function getExpenseCategories() {
+  return [
+    'Operasional',
+    'Gaji Karyawan',
+    'Listrik',
+    'Air',
+    'Sewa Toko',
+    'Transport',
+    'Lainnya'
+  ];
+}

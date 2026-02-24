@@ -43,9 +43,8 @@ function renderMenu(activePage) {
       id: 'keuangan',
       icon: '💰',
       text: 'Keuangan',
-      href: '#keuangan',
-      roles: ['owner', 'admin'],
-      disabled: true
+      href: 'finance.html',
+      roles: ['owner', 'admin']
     },
     {
       id: 'pengguna',

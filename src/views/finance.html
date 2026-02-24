@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keuangan - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Keuangan</h1>
+      </div>
+
+      <!-- Tabs Navigation -->
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button active" data-tab="dashboard">Dashboard Keuangan</button>
+          <button class="tab-button" data-tab="cash-drawer">Kas Harian</button>
+          <button class="tab-button" data-tab="expenses">Pengeluaran</button>
+          <button class="tab-button" data-tab="purchases">Pembelian</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Dashboard Keuangan -->
+      <div id="dashboard-tab" class="tab-content active">
+        <!-- Date Range Filter -->
+        <div class="filters-container">
+          <div class="filter-group">
+            <div class="form-group">
+              <label>Dari Tanggal</label>
+              <input type="date" id="dashboardStartDate" class="filter-input">
+            </div>
+            <div class="form-group">
+              <label>Sampai Tanggal</label>
+              <input type="date" id="dashboardEndDate" class="filter-input">
+            </div>
+            <button class="btn btn-primary" id="btnApplyDashboardFilter">
+              🔍 Filter
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="stats-container">
+          <div class="stat-card stat-card-primary">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+              <h3>Total Pendapatan</h3>
+              <p class="stat-value" id="totalSales">Rp 0</p>
+              <p class="stat-label">Dari penjualan</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card-danger">
+            <div class="stat-icon">📤</div>
+            <div class="stat-content">
+              <h3>Total Pengeluaran</h3>
+              <p class="stat-value" id="totalExpenses">Rp 0</p>
+              <p class="stat-label">Operasional & lainnya</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card-warning">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <h3>Laba Kotor</h3>
+              <p class="stat-value" id="grossProfit">Rp 0</p>
+              <p class="stat-label">Pendapatan - HPP</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card-success">
+            <div class="stat-icon">💵</div>
+            <div class="stat-content">
+              <h3>Laba Bersih</h3>
+              <p class="stat-value" id="netProfit">Rp 0</p>
+              <p class="stat-label">Laba kotor - Pengeluaran</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+          <div class="quick-stat-item">
+            <span class="quick-stat-label">Total Transaksi:</span>
+            <strong id="totalTransactions">0</strong>
+          </div>
+          <div class="quick-stat-item">
+            <span class="quick-stat-label">Rata-rata Transaksi:</span>
+            <strong id="avgTransaction">Rp 0</strong>
+          </div>
+          <div class="quick-stat-item">
+            <span class="quick-stat-label">HPP (COGS):</span>
+            <strong id="totalCOGS">Rp 0</strong>
+          </div>
+        </div>
+
+        <!-- Charts Area -->
+        <div class="charts-container">
+          <div class="chart-card">
+            <h3>Pendapatan vs Pengeluaran</h3>
+            <canvas id="salesExpensesChart" width="400" height="200"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Top 10 Produk Terlaris</h3>
+            <div id="topProductsList" class="top-products-list">
+              <p class="text-center">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Kas Harian -->
+      <div id="cash-drawer-tab" class="tab-content">
+        <!-- Current Cash Drawer Status -->
+        <div class="cash-status-card" id="cashStatusCard">
+          <div class="cash-status-content">
+            <h3>Status Kas Hari Ini</h3>
+            <div id="cashStatusContent">
+              <p class="text-center">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cash Drawer History -->
+        <div class="section-header">
+          <h3>Riwayat Kas</h3>
+          <div class="filter-group">
+            <input type="date" id="cashFilterStartDate" class="filter-input">
+            <input type="date" id="cashFilterEndDate" class="filter-input">
+            <button class="btn btn-secondary" id="btnApplyCashFilter">Filter</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table" id="cashDrawerTable">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Kasir</th>
+                <th>Saldo Awal</th>
+                <th>Penjualan Cash</th>
+                <th>Pengeluaran</th>
+                <th>Expected</th>
+                <th>Saldo Akhir</th>
+                <th>Selisih</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="cashDrawerTableBody">
+              <tr>
+                <td colspan="10" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab Content: Pengeluaran -->
+      <div id="expenses-tab" class="tab-content">
+        <div class="tab-header">
+          <button class="btn btn-primary" id="btnAddExpense">
+            <span>➕</span> Tambah Pengeluaran
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-container">
+          <div class="filter-group">
+            <input type="date" id="expenseFilterStartDate" class="filter-input">
+            <input type="date" id="expenseFilterEndDate" class="filter-input">
+            <select id="expenseFilterCategory" class="filter-select">
+              <option value="">Semua Kategori</option>
+            </select>
+            <button class="btn btn-secondary" id="btnApplyExpenseFilter">Filter</button>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-card">
+          <span>Total Pengeluaran:</span>
+          <strong id="expensesTotal">Rp 0</strong>
+        </div>
+
+        <!-- Expenses Table -->
+        <div class="table-container">
+          <table class="data-table" id="expensesTable">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Kategori</th>
+                <th>Deskripsi</th>
+                <th>Jumlah</th>
+                <th>Metode Bayar</th>
+                <th>User</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="expensesTableBody">
+              <tr>
+                <td colspan="7" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab Content: Pembelian -->
+      <div id="purchases-tab" class="tab-content">
+        <div class="tab-header">
+          <button class="btn btn-primary" id="btnAddPurchase">
+            <span>➕</span> Tambah Pembelian
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-container">
+          <div class="filter-group">
+            <input type="date" id="purchaseFilterStartDate" class="filter-input">
+            <input type="date" id="purchaseFilterEndDate" class="filter-input">
+            <select id="purchaseFilterStatus" class="filter-select">
+              <option value="">Semua Status</option>
+              <option value="paid">Lunas</option>
+              <option value="unpaid">Belum Bayar</option>
+              <option value="partial">Bayar Sebagian</option>
+            </select>
+            <button class="btn btn-secondary" id="btnApplyPurchaseFilter">Filter</button>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-card">
+          <div class="summary-item">
+            <span>Total Pembelian:</span>
+            <strong id="purchasesTotal">Rp 0</strong>
+          </div>
+          <div class="summary-item">
+            <span>Total Hutang:</span>
+            <strong id="purchasesDebt" class="text-danger">Rp 0</strong>
+          </div>
+        </div>
+
+        <!-- Purchases Table -->
+        <div class="table-container">
+          <table class="data-table" id="purchasesTable">
+            <thead>
+              <tr>
+                <th>Kode PO</th>
+                <th>Tanggal</th>
+                <th>Supplier</th>
+                <th>Total</th>
+                <th>Status Bayar</th>
+                <th>Sisa Hutang</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="purchasesTableBody">
+              <tr>
+                <td colspan="7" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Open Cash Drawer -->
+  <div id="openCashModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Buka Kas</h2>
+        <button class="modal-close" id="closeOpenCashModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="openCashForm">
+          <div class="form-group">
+            <label for="openingBalance">Saldo Awal <span class="required">*</span></label>
+            <input 
+              type="number" 
+              id="openingBalance" 
+              placeholder="0"
+              min="0"
+              step="1000"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="openCashNotes">Catatan</label>
+            <textarea 
+              id="openCashNotes" 
+              placeholder="Catatan (opsional)"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div id="openCashError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelOpenCash">Batal</button>
+            <button type="submit" class="btn btn-success btn-large">
+              🔓 Buka Kas
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Close Cash Drawer -->
+  <div id="closeCashModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Tutup Kas</h2>
+        <button class="modal-close" id="closeCloseCashModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cash-summary">
+          <div class="summary-row">
+            <span>Saldo Awal:</span>
+            <strong id="closeOpeningBalance">Rp 0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Penjualan Cash:</span>
+            <strong id="closeCashSales">Rp 0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Pengeluaran:</span>
+            <strong id="closeExpenses">Rp 0</strong>
+          </div>
+          <div class="summary-row total-row">
+            <span>Expected Balance:</span>
+            <strong id="closeExpectedBalance">Rp 0</strong>
+          </div>
+        </div>
+
+        <form id="closeCashForm">
+          <input type="hidden" id="closeCashDrawerId">
+
+          <div class="form-group">
+            <label for="closingBalance">Saldo Akhir Aktual <span class="required">*</span></label>
+            <input 
+              type="number" 
+              id="closingBalance" 
+              placeholder="0"
+              min="0"
+              step="1000"
+              required
+            >
+          </div>
+
+          <div class="difference-display" id="differenceDisplay" style="display: none;">
+            <span>Selisih:</span>
+            <strong id="differenceAmount">Rp 0</strong>
+          </div>
+
+          <div class="form-group">
+            <label for="closeCashNotes">Catatan</label>
+            <textarea 
+              id="closeCashNotes" 
+              placeholder="Catatan (opsional)"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div id="closeCashError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelCloseCash">Batal</button>
+            <button type="submit" class="btn btn-danger btn-large">
+              🔒 Tutup Kas
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detail Cash Drawer -->
+  <div id="detailCashModal" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Detail Kas</h2>
+        <button class="modal-close" id="closeDetailCashModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cash-detail" id="cashDetailContent">
+          <!-- Will be populated dynamically -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCloseDetailCash">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Expense -->
+  <div id="expenseModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="expenseModalTitle">Tambah Pengeluaran</h2>
+        <button class="modal-close" id="closeExpenseModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="expenseForm">
+          <input type="hidden" id="expenseId">
+
+          <div class="form-group">
+            <label for="expenseDate">Tanggal <span class="required">*</span></label>
+            <input type="date" id="expenseDate" required>
+          </div>
+
+          <div class="form-group">
+            <label for="expenseCategory">Kategori <span class="required">*</span></label>
+            <select id="expenseCategory" required>
+              <option value="">Pilih Kategori</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="expenseDescription">Deskripsi <span class="required">*</span></label>
+            <input type="text" id="expenseDescription" placeholder="Deskripsi pengeluaran" required>
+          </div>
+
+          <div class="form-group">
+            <label for="expenseAmount">Jumlah <span class="required">*</span></label>
+            <input type="number" id="expenseAmount" placeholder="0" min="0" step="100" required>
+          </div>
+
+          <div class="form-group">
+            <label for="expensePaymentMethod">Metode Bayar</label>
+            <select id="expensePaymentMethod">
+              <option value="cash">Cash</option>
+              <option value="transfer">Transfer</option>
+              <option value="debit">Debit Card</option>
+              <option value="credit">Credit Card</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="expenseNotes">Catatan</label>
+            <textarea id="expenseNotes" placeholder="Catatan (opsional)" rows="3"></textarea>
+          </div>
+
+          <div id="expenseFormError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelExpense">Batal</button>
+            <button type="submit" class="btn btn-primary">
+              <span id="btnSubmitExpenseText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Purchase -->
+  <div id="purchaseModal" class="modal">
+    <div class="modal-content modal-extra-large">
+      <div class="modal-header">
+        <h2 id="purchaseModalTitle">Tambah Pembelian</h2>
+        <button class="modal-close" id="closePurchaseModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="purchaseForm">
+          <input type="hidden" id="purchaseId">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="purchaseCode">Kode PO</label>
+              <input type="text" id="purchaseCode" readonly class="readonly-input">
+            </div>
+
+            <div class="form-group">
+              <label for="purchaseDate">Tanggal <span class="required">*</span></label>
+              <input type="date" id="purchaseDate" required>
+            </div>
+
+            <div class="form-group">
+              <label for="supplierName">Supplier</label>
+              <input type="text" id="supplierName" placeholder="Nama supplier (opsional)">
+            </div>
+          </div>
+
+          <!-- Purchase Items -->
+          <div class="purchase-items-section">
+            <div class="section-header">
+              <h3>Item Pembelian</h3>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnAddPurchaseItem">
+                ➕ Tambah Item
+              </button>
+            </div>
+
+            <div class="table-container">
+              <table class="purchase-items-table">
+                <thead>
+                  <tr>
+                    <th width="35%">Produk</th>
+                    <th width="15%">Qty</th>
+                    <th width="10%">Satuan</th>
+                    <th width="20%">Harga Beli</th>
+                    <th width="15%">Subtotal</th>
+                    <th width="5%">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="purchaseItemsTableBody">
+                  <tr>
+                    <td colspan="6" class="text-center">Belum ada item. Klik "Tambah Item" untuk menambahkan.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="purchase-total">
+              <span>Total Pembelian:</span>
+              <strong id="purchaseTotalAmount">Rp 0</strong>
+            </div>
+          </div>
+
+          <!-- Payment Info -->
+          <div class="form-row">
+            <div class="form-group">
+              <label for="paymentStatus">Status Bayar <span class="required">*</span></label>
+              <select id="paymentStatus" required>
+                <option value="unpaid">Belum Bayar</option>
+                <option value="partial">Bayar Sebagian</option>
+                <option value="paid">Lunas</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="paidAmount">Jumlah Dibayar</label>
+              <input type="number" id="paidAmount" placeholder="0" min="0" step="1000" value="0">
+            </div>
+
+            <div class="form-group">
+              <label>Sisa Hutang</label>
+              <input type="text" id="remainingAmount" readonly class="readonly-input" value="Rp 0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="purchaseNotes">Catatan</label>
+            <textarea id="purchaseNotes" placeholder="Catatan (opsional)" rows="3"></textarea>
+          </div>
+
+          <div id="purchaseFormError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelPurchase">Batal</button>
+            <button type="submit" class="btn btn-primary">
+              <span id="btnSubmitPurchaseText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add Purchase Item -->
+  <div id="addPurchaseItemModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Tambah Item</h2>
+        <button class="modal-close" id="closeAddItemModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="addPurchaseItemForm">
+          <div class="form-group">
+            <label for="itemProduct">Produk <span class="required">*</span></label>
+            <select id="itemProduct" required>
+              <option value="">Pilih Produk</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="itemQuantity">Quantity <span class="required">*</span></label>
+            <input type="number" id="itemQuantity" placeholder="0" min="1" step="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="itemUnit">Satuan</label>
+            <input type="text" id="itemUnit" readonly class="readonly-input">
+          </div>
+
+          <div class="form-group">
+            <label for="itemPurchasePrice">Harga Beli <span class="required">*</span></label>
+            <input type="number" id="itemPurchasePrice" placeholder="0" min="0" step="100" required>
+          </div>
+
+          <div class="form-group">
+            <label>Subtotal</label>
+            <input type="text" id="itemSubtotal" readonly class="readonly-input" value="Rp 0">
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelAddItem">Batal</button>
+            <button type="submit" class="btn btn-primary">Tambah</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pay Purchase -->
+  <div id="payPurchaseModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Bayar Pembelian</h2>
+        <button class="modal-close" id="closePayPurchaseModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="purchase-info">
+          <div class="info-row">
+            <span>Kode PO:</span>
+            <strong id="payPurchaseCode">-</strong>
+          </div>
+          <div class="info-row">
+            <span>Supplier:</span>
+            <strong id="paySupplier">-</strong>
+          </div>
+          <div class="info-row">
+            <span>Total:</span>
+            <strong id="payTotal">Rp 0</strong>
+          </div>
+          <div class="info-row">
+            <span>Sudah Dibayar:</span>
+            <strong id="payAlreadyPaid">Rp 0</strong>
+          </div>
+          <div class="info-row total-row">
+            <span>Sisa Hutang:</span>
+            <strong id="payRemaining" class="text-danger">Rp 0</strong>
+          </div>
+        </div>
+
+        <form id="payPurchaseForm">
+          <input type="hidden" id="payPurchaseId">
+
+          <div class="form-group">
+            <label for="payAmount">Jumlah Bayar Sekarang <span class="required">*</span></label>
+            <input type="number" id="payAmount" placeholder="0" min="0" step="1000" required>
+          </div>
+
+          <div id="payPurchaseError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelPay">Batal</button>
+            <button type="submit" class="btn btn-success">
+              💰 Proses Bayar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detail Purchase -->
+  <div id="detailPurchaseModal" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Detail Pembelian</h2>
+        <button class="modal-close" id="closeDetailPurchaseModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="purchase-detail" id="purchaseDetailContent">
+          <!-- Will be populated dynamically -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCloseDetailPurchase">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/finance.js"></script>
+</body>
+</html>
