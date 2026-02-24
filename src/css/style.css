@@ -1,4 +1,7 @@
-/* Reset & Base Styles */
+/* ========================================
+   RESET & BASE STYLES
+   Normalisasi default browser dan base styling
+   ======================================== */
 * {
   margin: 0;
   padding: 0;
@@ -12,7 +15,12 @@ body {
   line-height: 1.6;
 }
 
-/* Button Styles */
+/* ========================================
+   BUTTON STYLES
+   Semua varian tombol: primary, secondary, danger, dll.
+   ======================================== */
+
+/* Base Button */
 .btn {
   padding: 10px 20px;
   border: none;
@@ -40,6 +48,7 @@ body {
   transform: none;
 }
 
+/* Button Variants */
 .btn-primary {
   background-color: #3498db;
   color: white;
@@ -47,6 +56,16 @@ body {
 
 .btn-primary:hover {
   background-color: #2980b9;
+}
+
+/* Button Secondary */
+.btn-secondary {
+  background-color: #95a5a6;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #7f8c8d;
 }
 
 .btn-success {
@@ -102,16 +121,6 @@ body {
 .btn-icon:disabled:hover {
   background: none;
   transform: none;
-}
-
-/* Button Secondary */
-.btn-secondary {
-  background-color: #95a5a6;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background-color: #7f8c8d;
 }
 
 .btn-qty {
