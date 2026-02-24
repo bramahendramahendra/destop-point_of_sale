@@ -2277,20 +2277,7 @@ code {
     height: 24px;
     font-size: 12px;
   }
-}
 
-
-
-
-
-
-
-
-
-
-
-
-@media (max-width: 480px) {
   .stats-container {
     grid-template-columns: 1fr;
   }
