@@ -1160,33 +1160,6 @@ kbd {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Code style for barcode */
-code {
-  background-color: #f8f9fa;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
-  color: #e74c3c;
-}
-
-/* ========================================
-   KASIR PAGE STYLES
-   ======================================== */
-
 /* Product Search */
 .product-search-box {
   position: relative;
@@ -1335,7 +1308,6 @@ code {
   border-radius: 3px;
   font-size: 13px;
 }
-
 
 /* Cart Summary */
 .cart-summary {
@@ -1491,11 +1463,12 @@ code {
   text-align: center;
 }
 
+
 /* ========================================
-   TRANSACTIONS PAGE STYLES
+   TRANSACTIONS PAGE
+   Detail transaksi, tabel item, dan info pembayaran
    ======================================== */
 
-/* Transaction Detail */
 .transaction-detail {
   max-height: 70vh;
   overflow-y: auto;
@@ -1583,9 +1556,9 @@ code {
 }
 
 
-
 /* ========================================
-   RECEIPT PAGE STYLES
+   RECEIPT (STRUK) PAGE
+   Tampilan struk cetak dan preview di layar
    ======================================== */
 
 .receipt-page {
@@ -1630,6 +1603,7 @@ code {
   margin-bottom: 15px;
 }
 
+/* Receipt Table */
 .receipt-table {
   width: 100%;
   margin-bottom: 15px;
@@ -1660,6 +1634,7 @@ code {
   font-weight: 600;
 }
 
+/* Receipt Summary */
 .receipt-summary {
   margin-bottom: 15px;
 }
@@ -1682,6 +1657,7 @@ code {
   font-weight: 700;
 }
 
+/* Receipt Footer */
 .receipt-footer {
   text-align: center;
   margin-top: 20px;
@@ -1698,6 +1674,33 @@ code {
   gap: 10px;
   justify-content: center;
 }
+
+/* Code style (barcode display) */
+
+
+
+
+
+
+
+
+
+/* Code style for barcode */
+code {
+  background-color: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #e74c3c;
+}
+
+
+
+/* ========================================
+   RECEIPT PAGE STYLES
+   ======================================== */
+
 
 
 /* Print Styles */
