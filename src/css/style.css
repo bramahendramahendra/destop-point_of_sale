@@ -2081,9 +2081,6 @@ code {
    Override style khusus saat halaman dicetak
    ======================================== */
 
-
-
-/* Print Styles */
 @media print {
   body {
     background: white;
@@ -2119,8 +2116,10 @@ code {
   }
 }
 
+
 /* ========================================
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE - LARGE (max-width: 1200px)
+   Penyesuaian layout untuk layar medium-large
    ======================================== */
 
 @media (max-width: 1200px) {
@@ -2132,6 +2131,12 @@ code {
     max-width: 100%;
   }
 }
+
+
+
+
+
+
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -2242,16 +2247,7 @@ code {
 
 
 
-/* Responsive */
-@media (max-width: 1200px) {
-  .charts-container {
-    grid-template-columns: 1fr;
-  }
 
-  .cash-info-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
 
 @media (max-width: 768px) {
   .quick-stats {
