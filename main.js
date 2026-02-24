@@ -634,7 +634,7 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
     console.log('Transaction data prepared:', txData);
 
     // 1. Insert transaction
-    const transactionResult = dbModule.run(
+    dbModule.run(
       `INSERT INTO transactions (
         transaction_code, user_id, transaction_date, subtotal, 
         discount_type, discount_value, discount_amount, 
@@ -662,7 +662,17 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
       ]
     );
 
-    const transactionId = transactionResult.lastInsertRowid;
+    // Get the transaction ID by querying with transaction_code
+    const insertedTransaction = dbModule.get(
+      'SELECT id FROM transactions WHERE transaction_code = ?',
+      [txData.transaction_code]
+    );
+
+    if (!insertedTransaction) {
+      throw new Error('Failed to retrieve inserted transaction');
+    }
+
+    const transactionId = insertedTransaction.id;
     console.log('Transaction inserted with ID:', transactionId);
 
     // 2. Insert transaction items and update stock
