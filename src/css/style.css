@@ -2141,12 +2141,11 @@ code {
 }
 
 
+/* ========================================
+   RESPONSIVE - TABLET (max-width: 768px)
+   Penyesuaian layout untuk layar tablet
+   ======================================== */
 
-
-
-
-
-/* Responsive */
 @media (max-width: 768px) {
   .sidebar {
     width: 200px;
@@ -2205,11 +2204,11 @@ code {
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .tabs {
     overflow-x: auto;
   }
-  
+
   .tab-button {
     flex-shrink: 0;
   }
@@ -2225,39 +2224,7 @@ code {
   .detail-grid {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 480px) {
-  .cart-table th,
-  .cart-table td {
-    padding: 8px 5px;
-    font-size: 12px;
-  }
-
-  .qty-input {
-    width: 40px;
-  }
-
-  .btn-qty {
-    width: 24px;
-    height: 24px;
-    font-size: 12px;
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-@media (max-width: 768px) {
   .quick-stats {
     flex-wrap: wrap;
     gap: 15px;
@@ -2287,6 +2254,41 @@ code {
     padding: 8px 5px;
   }
 }
+
+
+/* ========================================
+   RESPONSIVE - MOBILE (max-width: 480px)
+   Penyesuaian layout untuk layar mobile kecil
+   ======================================== */
+
+@media (max-width: 480px) {
+  .cart-table th,
+  .cart-table td {
+    padding: 8px 5px;
+    font-size: 12px;
+  }
+
+  .qty-input {
+    width: 40px;
+  }
+
+  .btn-qty {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
 
 @media (max-width: 480px) {
   .stats-container {
