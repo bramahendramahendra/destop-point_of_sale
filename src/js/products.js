@@ -577,6 +577,10 @@ async function saveProduct(formData) {
         editingProductId ? 'Produk berhasil diupdate' : 'Produk berhasil ditambahkan',
         'success'
       );
+      
+      // IMPORTANT: Reset button state after success
+      btnSubmit.disabled = false;
+      btnSubmitText.textContent = originalText;
     } else {
       showProductFormError(result.message || 'Gagal menyimpan produk');
       btnSubmit.disabled = false;
