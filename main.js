@@ -1080,16 +1080,36 @@ ipcMain.handle('cashDrawer:getById', async (event, id) => {
       ORDER BY transaction_date DESC
     `, [date, cashDrawer.user_id]);
 
-    // Get expenses for that day
+    // Get expenses for that day (CASH ONLY)
     const expenses = dbModule.all(`
       SELECT * FROM expenses
       WHERE DATE(expense_date) = DATE(?)
       AND user_id = ?
+      AND payment_method = 'cash'
       ORDER BY expense_date DESC
     `, [date, cashDrawer.user_id]);
 
+    // Calculate totals from actual data (backup jika data di cash_drawer salah)
+    const actualCashSales = transactions.reduce((sum, t) => sum + t.total_amount, 0);
+    const actualExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+    console.log('Cash Drawer Detail:', {
+      id: cashDrawer.id,
+      date: date,
+      storedCashSales: cashDrawer.total_cash_sales,
+      actualCashSales: actualCashSales,
+      storedExpenses: cashDrawer.total_expenses,
+      actualExpenses: actualExpenses,
+      transactionsCount: transactions.length,
+      expensesCount: expenses.length
+    });
+
     cashDrawer.transactions = transactions;
     cashDrawer.expenses = expenses;
+    
+    // Use actual calculated values for accuracy
+    cashDrawer.calculated_cash_sales = actualCashSales;
+    cashDrawer.calculated_expenses = actualExpenses;
 
     return { success: true, cashDrawer };
   } catch (error) {
@@ -1227,6 +1247,9 @@ ipcMain.handle('expenses:create', async (event, expenseData) => {
       return { success: false, message: 'User tidak ditemukan' };
     }
 
+    console.log('Creating expense:', expenseData);
+
+    // Insert expense
     dbModule.run(
       `INSERT INTO expenses (
         expense_date, category, description, amount, 
@@ -1237,23 +1260,47 @@ ipcMain.handle('expenses:create', async (event, expenseData) => {
         expenseData.category,
         expenseData.description,
         expenseData.amount,
-        expenseData.payment_method || '',
+        expenseData.payment_method || 'cash',
         currentUser.id,
         expenseData.notes || ''
       ]
     );
 
-    // Update cash drawer if payment is cash and today
-    if (expenseData.payment_method === 'cash') {
-      const today = new Date().toISOString().split('T')[0];
-      const expenseDate = expenseData.expense_date.split('T')[0];
-      
-      if (today === expenseDate) {
-        await ipcMain.emit('cashDrawer:updateExpenses', event, expenseData.amount);
+    console.log('Expense created successfully');
+
+    // Update cash drawer if payment is cash AND expense date is today
+    const today = new Date().toISOString().split('T')[0];
+    const expenseDate = expenseData.expense_date.split('T')[0];
+    
+    console.log('Checking cash drawer update:', {
+      paymentMethod: expenseData.payment_method,
+      expenseDate: expenseDate,
+      today: today,
+      shouldUpdate: expenseData.payment_method === 'cash' && expenseDate === today
+    });
+
+    if (expenseData.payment_method === 'cash' && expenseDate === today) {
+      // Get today's open cash drawer
+      const cashDrawer = dbModule.get(`
+        SELECT id FROM cash_drawer 
+        WHERE user_id = ? 
+        AND DATE(open_time) = DATE(?) 
+        AND status = 'open'
+      `, [currentUser.id, today]);
+
+      console.log('Cash drawer found:', cashDrawer);
+
+      if (cashDrawer) {
+        dbModule.run(
+          'UPDATE cash_drawer SET total_expenses = total_expenses + ? WHERE id = ?',
+          [expenseData.amount, cashDrawer.id]
+        );
+        console.log('Cash drawer updated with expense:', expenseData.amount);
+      } else {
+        console.log('No open cash drawer found for today');
       }
     }
 
-    console.log('Expense created successfully');
     return { success: true };
   } catch (error) {
     console.error('Create expense error:', error);

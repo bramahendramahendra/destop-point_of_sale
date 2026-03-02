@@ -573,6 +573,11 @@ function displayCashDrawerDetail(cashDrawer) {
   const transactions = cashDrawer.transactions || [];
   const expenses = cashDrawer.expenses || [];
 
+  // Use calculated values if available (more accurate)
+  const totalCashSales = cashDrawer.calculated_cash_sales || cashDrawer.total_cash_sales;
+  const totalExpenses = cashDrawer.calculated_expenses || cashDrawer.total_expenses;
+  const expectedBalance = cashDrawer.opening_balance + totalCashSales - totalExpenses;
+
   container.innerHTML = `
     <div class="detail-section">
       <h3>Informasi Kas</h3>
@@ -663,6 +668,9 @@ function displayCashDrawerDetail(cashDrawer) {
             `).join('')}
           </tbody>
         </table>
+        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+          <strong>Total Pengeluaran: ${formatCurrency(totalExpenses)}</strong>
+        </div>
       ` : '<p class="text-center">Tidak ada pengeluaran</p>'}
     </div>
 
@@ -674,15 +682,15 @@ function displayCashDrawerDetail(cashDrawer) {
         </div>
         <div class="payment-row">
           <span>Total Penjualan Cash:</span>
-          <strong class="text-success">+ ${formatCurrency(cashDrawer.total_cash_sales)}</strong>
+          <strong class="text-success">+ ${formatCurrency(totalCashSales)}</strong>
         </div>
         <div class="payment-row">
           <span>Total Pengeluaran:</span>
-          <strong class="text-danger">- ${formatCurrency(cashDrawer.total_expenses)}</strong>
+          <strong class="text-danger">- ${formatCurrency(totalExpenses)}</strong>
         </div>
         <div class="payment-row total-row">
           <span>Expected Balance:</span>
-          <strong>${formatCurrency(cashDrawer.expected_balance || 0)}</strong>
+          <strong>${formatCurrency(expectedBalance)}</strong>
         </div>
         ${cashDrawer.closing_balance !== null ? `
         <div class="payment-row">
@@ -692,7 +700,7 @@ function displayCashDrawerDetail(cashDrawer) {
         <div class="payment-row">
           <span>Selisih:</span>
           <strong class="${cashDrawer.difference === 0 ? 'text-success' : 'text-danger'}">
-            ${formatCurrency(cashDrawer.difference)}
+            ${formatCurrency(cashDrawer.closing_balance - expectedBalance)}
           </strong>
         </div>
         ` : ''}
@@ -890,6 +898,13 @@ async function handleExpenseFormSubmit(e) {
 }
 
 async function saveExpense(formData) {
+  
+  console.log('=== SAVING EXPENSE ===');
+  console.log('Expense Data:', formData);
+  console.log('Payment Method:', formData.payment_method);
+  console.log('Expense Date:', formData.expense_date);
+  console.log('Today:', new Date().toISOString().split('T')[0]);
+
   try {
     let result;
 
