@@ -40,6 +40,13 @@ function renderMenu(activePage) {
       roles: ['owner', 'admin', 'kasir']
     },
     {
+      id: 'my-cash',
+      icon: '💰',
+      text: 'Kas Saya',
+      href: 'my-cash.html',
+      roles: ['kasir']
+    },
+    {
       id: 'keuangan',
       icon: '💰',
       text: 'Keuangan',

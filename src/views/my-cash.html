@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kas Saya - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>💰 Kas Saya</h1>
+        <p class="page-subtitle">Kelola kas harian Anda</p>
+      </div>
+
+      <!-- Current Cash Drawer Status -->
+      <div class="cash-status-card" id="cashStatusCard">
+        <div class="cash-status-content">
+          <h3>Status Kas Hari Ini</h3>
+          <div id="cashStatusContent">
+            <p class="text-center">Loading...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cash Drawer History -->
+      <div class="section-header">
+        <h3>Riwayat Kas Saya (7 Hari Terakhir)</h3>
+        <div class="filter-group">
+          <input type="date" id="cashFilterStartDate" class="filter-input">
+          <input type="date" id="cashFilterEndDate" class="filter-input">
+          <button class="btn btn-secondary" id="btnApplyCashFilter">Filter</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="cashDrawerTable">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Saldo Awal</th>
+              <th>Penjualan Cash</th>
+              <th>Pengeluaran</th>
+              <th>Expected</th>
+              <th>Saldo Akhir</th>
+              <th>Selisih</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="cashDrawerTableBody">
+            <tr>
+              <td colspan="9" class="text-center">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Open Cash Drawer -->
+  <div id="openCashModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Buka Kas</h2>
+        <button class="modal-close" id="closeOpenCashModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="openCashForm">
+          <div class="form-group">
+            <label for="openingBalance">Saldo Awal <span class="required">*</span></label>
+            <input 
+              type="number" 
+              id="openingBalance" 
+              placeholder="0"
+              min="0"
+              step="1000"
+              required
+            >
+            <small class="form-text">Hitung uang cash yang ada di laci saat mulai shift</small>
+          </div>
+
+          <div class="form-group">
+            <label for="openCashNotes">Catatan</label>
+            <textarea 
+              id="openCashNotes" 
+              placeholder="Catatan (opsional)"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div id="openCashError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelOpenCash">Batal</button>
+            <button type="submit" class="btn btn-success btn-large">
+              🔓 Buka Kas
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Close Cash Drawer -->
+  <div id="closeCashModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Tutup Kas</h2>
+        <button class="modal-close" id="closeCloseCashModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cash-summary">
+          <div class="summary-row">
+            <span>Saldo Awal:</span>
+            <strong id="closeOpeningBalance">Rp 0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Penjualan Cash:</span>
+            <strong id="closeCashSales">Rp 0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Pengeluaran:</span>
+            <strong id="closeExpenses">Rp 0</strong>
+          </div>
+          <div class="summary-row total-row">
+            <span>Expected Balance:</span>
+            <strong id="closeExpectedBalance">Rp 0</strong>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <p>ℹ️ <strong>Hitung uang fisik di laci Anda sekarang</strong></p>
+          <p>Masukkan jumlah uang yang benar-benar ada di laci kasir Anda.</p>
+        </div>
+
+        <form id="closeCashForm">
+          <input type="hidden" id="closeCashDrawerId">
+
+          <div class="form-group">
+            <label for="closingBalance">Saldo Akhir Aktual (Uang di Laci) <span class="required">*</span></label>
+            <input 
+              type="number" 
+              id="closingBalance" 
+              placeholder="0"
+              min="0"
+              step="1000"
+              required
+            >
+          </div>
+
+          <div class="difference-display" id="differenceDisplay" style="display: none;">
+            <span>Selisih:</span>
+            <strong id="differenceAmount">Rp 0</strong>
+          </div>
+
+          <div class="form-group">
+            <label for="closeCashNotes">Catatan</label>
+            <textarea 
+              id="closeCashNotes" 
+              placeholder="Catatan (opsional)"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div id="closeCashError" class="error-message" style="display: none;"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelCloseCash">Batal</button>
+            <button type="submit" class="btn btn-danger btn-large">
+              🔒 Tutup Kas
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detail Cash Drawer -->
+  <div id="detailCashModal" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Detail Kas</h2>
+        <button class="modal-close" id="closeDetailCashModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cash-detail" id="cashDetailContent">
+          <!-- Will be populated dynamically -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCloseDetailCash">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/my-cash.js"></script>
+</body>
+</html>

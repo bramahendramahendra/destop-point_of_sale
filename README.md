@@ -258,6 +258,100 @@ Lakukan testing dengan langkah berikut:
 5. ✅ Hapus pembelian → Stock dikembalikan
 6. ✅ Stock mutations tercatat dengan benar
 
+## Testing Step 5+ - Kas Saya (Kasir)
+
+### Setup:
+1. ✅ Restart aplikasi
+2. ✅ Buat user kasir baru (jika belum ada)
+3. ✅ Login sebagai kasir
+
+### Test Menu Access:
+1. ✅ Kasir BISA lihat menu "Kas Saya" ✅
+2. ✅ Kasir TIDAK BISA lihat menu "Keuangan" ❌
+3. ✅ Klik menu "Kas Saya" → Halaman terbuka
+
+### Test Buka Kas:
+1. ✅ Status: "Kas Belum Dibuka"
+2. ✅ Klik "Buka Kas Sekarang" → Modal terbuka
+3. ✅ Input saldo awal: Rp 500.000
+4. ✅ Input catatan: "Shift pagi"
+5. ✅ Klik "Buka Kas" → Konfirmasi muncul
+6. ✅ Konfirmasi → Kas terbuka dengan status "KAS TERBUKA"
+7. ✅ Info ditampilkan: waktu buka, saldo awal, penjualan, pengeluaran, expected, durasi
+
+### Test Transaksi:
+1. ✅ Klik menu "Kasir"
+2. ✅ Lakukan 2-3 transaksi penjualan (payment: Cash)
+3. ✅ Kembali ke "Kas Saya"
+4. ✅ Total Penjualan Cash harus bertambah ✅
+5. ✅ Expected Balance harus terupdate ✅
+6. ✅ Durasi kas terupdate (misal: "2 jam 15 menit")
+
+### Test Tutup Kas:
+1. ✅ Klik "Tutup Kas" → Modal terbuka
+2. ✅ Tampil: Saldo Awal, Penjualan Cash, Pengeluaran, Expected Balance
+3. ✅ Hitung uang fisik di laci (simulasi)
+4. ✅ Input saldo akhir aktual (misal: Rp 548.000)
+5. ✅ Selisih auto-calculate dan ditampilkan (hijau/kuning/merah)
+6. ✅ Input catatan (opsional)
+7. ✅ Klik "Tutup Kas" → Konfirmasi muncul (dengan info selisih)
+8. ✅ Konfirmasi → Kas ditutup
+9. ✅ Status berubah jadi "Kas Belum Dibuka" (untuk hari berikutnya)
+
+### Test History:
+1. ✅ Riwayat kas tampil di tabel (default: 7 hari terakhir)
+2. ✅ Hanya tampil kas KASIR SENDIRI (tidak bisa lihat kas kasir lain) ✅
+3. ✅ Klik "Detail" → Modal detail terbuka
+4. ✅ Detail menampilkan:
+   - Info kas
+   - List transaksi penjualan cash
+   - List pengeluaran
+   - Ringkasan dengan selisih
+5. ✅ Filter by date range → Berfungsi
+
+### Test Isolation (Penting!):
+1. ✅ Login sebagai kasir A
+2. ✅ Buka kas → Lakukan transaksi → Tutup kas
+3. ✅ Logout
+4. ✅ Login sebagai kasir B
+5. ✅ Menu "Kas Saya" → Hanya tampil kas kasir B ✅
+6. ✅ TIDAK BISA lihat kas kasir A ✅
+7. ✅ Logout
+8. ✅ Login sebagai owner/admin
+9. ✅ Menu "Keuangan" → Tab "Kas Harian"
+10. ✅ Owner/admin bisa lihat KAS SEMUA KASIR ✅
+
+### Test Access Control:
+1. ✅ Login sebagai kasir
+2. ✅ Coba akses finance.html langsung → Redirect atau error ❌
+3. ✅ Coba akses my-cash.html → Berhasil ✅
+4. ✅ Logout
+5. ✅ Login sebagai owner
+6. ✅ Coba akses my-cash.html → Redirect (bukan untuk owner) ❌
+7. ✅ Menu "Keuangan" tampil dan bisa diakses ✅
+
+## 🧪 Testing Checklist
+
+Setelah implement, test dengan urutan:
+
+### **1. Test sebagai Kasir:**
+
+Login kasir → Menu "Kas Saya" ada ✅
+Menu "Keuangan" tidak ada ✅
+Buka kas → Berhasil ✅
+Transaksi cash → Total update ✅
+Tutup kas → Berhasil ✅
+History → Hanya kas sendiri ✅
+
+### **2. Test sebagai Owner/Admin:**
+Login owner → Menu "Keuangan" ada ✅
+Menu "Kas Saya" tidak ada ✅
+Tab "Kas Harian" → Lihat semua kas ✅
+
+### **3. Test Isolation:**
+Kasir A buka kas → Logout
+Kasir B login → Tidak bisa lihat kas A ✅
+Owner login → Bisa lihat kas A & B ✅
 
 
 ## Struktur Folder
