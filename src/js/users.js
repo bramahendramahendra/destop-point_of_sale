@@ -158,22 +158,25 @@ function renderUsersTable(users) {
 // Open add user modal
 function openAddModal() {
   editingUserId = null;
-  
+
   document.getElementById('modalTitle').textContent = 'Tambah User Baru';
   document.getElementById('userForm').reset();
-  
+
   // Password required for new user
   document.getElementById('password').required = true;
   document.getElementById('confirmPassword').required = true;
   document.getElementById('passwordRequired').style.display = 'inline';
   document.getElementById('confirmPasswordRequired').style.display = 'inline';
   document.getElementById('passwordHint').textContent = 'Minimal 8 karakter';
-  
+
   document.getElementById('btnSubmitText').textContent = 'Simpan';
   document.getElementById('formError').style.display = 'none';
-  
+
+  // ✅ FIX: Pastikan button tidak dalam kondisi disabled
+  document.getElementById('btnSubmit').disabled = false;
+
   document.getElementById('userModal').style.display = 'flex';
-  
+
   setTimeout(() => {
     document.getElementById('username').focus();
   }, 100);
@@ -205,6 +208,9 @@ async function editUser(userId) {
       
       document.getElementById('btnSubmitText').textContent = 'Update';
       document.getElementById('formError').style.display = 'none';
+
+      // ✅ FIX: Pastikan button tidak dalam kondisi disabled
+      document.getElementById('btnSubmit').disabled = false;
       
       document.getElementById('userModal').style.display = 'flex';
       
@@ -225,6 +231,12 @@ function closeUserModal() {
   document.getElementById('userModal').style.display = 'none';
   document.getElementById('userForm').reset();
   editingUserId = null;
+
+  // ✅ FIX: Reset button state agar tidak disabled saat modal dibuka lagi
+  const btnSubmit = document.getElementById('btnSubmit');
+  const btnSubmitText = document.getElementById('btnSubmitText');
+  if (btnSubmit) btnSubmit.disabled = false;
+  if (btnSubmitText) btnSubmitText.textContent = 'Simpan';
 }
 
 // Handle form submit
