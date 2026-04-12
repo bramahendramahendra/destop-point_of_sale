@@ -214,6 +214,19 @@ async function initDatabase() {
   run(createPurchaseItemsTable);
   console.log('Purchase items table created successfully');
 
+// Create settings table
+  const createSettingsTable = `
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT UNIQUE NOT NULL,
+      value TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  run(createSettingsTable);
+  console.log('Settings table created successfully');
+
   // Check if admin user exists
   const adminExists = get('SELECT id FROM users WHERE username = ?', ['admin']);
 
@@ -302,6 +315,27 @@ async function initDatabase() {
     });
 
     console.log('Sample products created successfully');
+  }
+  
+ // Insert default settings if not exist
+  const settingsExist = get("SELECT id FROM settings WHERE key = 'store_name'");
+  if (!settingsExist) {
+    const defaultSettings = [
+      ['store_name', 'TOKO RETAIL'],
+      ['store_address', 'Jl. Contoh No. 123, Kota'],
+      ['store_phone', '021-12345678'],
+      ['store_email', 'info@tokoretail.com'],
+      ['tax_enabled', '0'],
+      ['tax_percent', '0'],
+      ['receipt_footer', 'Terima Kasih - Barang yang sudah dibeli tidak dapat ditukar'],
+      ['auto_backup', '1'],
+      ['backup_days', '7'],
+      ['store_logo', '']
+    ];
+    defaultSettings.forEach(([key, value]) => {
+      run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    });
+    console.log('Default settings inserted');
   }
 
   console.log('Database initialization completed');

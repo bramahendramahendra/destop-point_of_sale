@@ -18,67 +18,149 @@
     <main class="main-content">
       <div class="content-header">
         <h1>Dashboard</h1>
+        <span id="dashboardDate" style="font-size:14px;color:#7f8c8d;"></span>
       </div>
 
+      <!-- Welcome Card -->
       <div class="welcome-card">
         <h2>Selamat datang, <span id="welcomeName">User</span>! 👋</h2>
-        <p>Aplikasi POS sedang dalam tahap development</p>
-        <div class="dev-info">
-          <p><strong>Status Development:</strong></p>
-          <ul>
-            <li>✅ STEP 1: Login & Dashboard Basic - <strong>DONE</strong></li>
-            <li>✅ STEP 2: User Management - <strong>DONE</strong></li>
-            <li>✅ STEP 3: Category & Product Management - <strong>DONE</strong></li>
-            <li>✅ STEP 4: Cashier & Transaction - <strong>DONE</strong></li>
-            <li>✅ STEP 5: Keuangan - Kas, Pengeluaran, Pembelian - <strong>DONE</strong></li>
-            <li>⏳ STEP 6: Reports - Coming Soon</li>
-          </ul>
-        </div>
+        <p style="color:#7f8c8d;margin:0;">
+          Berikut ringkasan aktivitas toko Anda hari ini.
+        </p>
       </div>
 
-      <!-- Stats Cards Placeholder -->
-      <div class="stats-container">
-        <div class="stat-card">
+      <!-- Stats Cards — Hari Ini -->
+      <div style="margin-bottom:10px;">
+        <h3 style="font-size:14px;color:#7f8c8d;font-weight:600;
+                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
+          📅 Hari Ini
+        </h3>
+      </div>
+      <div class="stats-container" style="margin-bottom:24px;">
+        <div class="stat-card stat-card-primary">
           <div class="stat-icon">💰</div>
           <div class="stat-content">
             <h3>Total Penjualan</h3>
-            <p class="stat-value">Rp 0</p>
+            <p class="stat-value" id="statTodaySales">Rp 0</p>
             <p class="stat-label">Hari ini</p>
           </div>
         </div>
-
-        <div class="stat-card">
-          <div class="stat-icon">🛍️</div>
+        <div class="stat-card stat-card-success">
+          <div class="stat-icon">🧾</div>
           <div class="stat-content">
             <h3>Transaksi</h3>
-            <p class="stat-value">0</p>
-            <p class="stat-label">Hari ini</p>
+            <p class="stat-value" id="statTodayTransactions">0</p>
+            <p class="stat-label">Transaksi hari ini</p>
           </div>
         </div>
-
         <div class="stat-card">
           <div class="stat-icon">📦</div>
           <div class="stat-content">
-            <h3>Produk</h3>
-            <p class="stat-value">0</p>
-            <p class="stat-label">Total produk</p>
+            <h3>Total Produk</h3>
+            <p class="stat-value" id="statTotalProducts">0</p>
+            <p class="stat-label">Produk aktif</p>
           </div>
         </div>
-
-        <div class="stat-card">
+        <div class="stat-card stat-card-warning" id="statLowStockCard" style="cursor:pointer;">
           <div class="stat-icon">⚠️</div>
           <div class="stat-content">
             <h3>Stok Menipis</h3>
-            <p class="stat-value">0</p>
-            <p class="stat-label">Produk</p>
+            <p class="stat-value" id="statLowStock">0</p>
+            <p class="stat-label" id="statLowStockLabel">Produk</p>
           </div>
         </div>
       </div>
+
+      <!-- Stats Cards — Bulan Ini -->
+      <div style="margin-bottom:10px;">
+        <h3 style="font-size:14px;color:#7f8c8d;font-weight:600;
+                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
+          📆 Bulan Ini
+        </h3>
+      </div>
+      <div class="stats-container" style="margin-bottom:28px;">
+        <div class="stat-card">
+          <div class="stat-icon">📈</div>
+          <div class="stat-content">
+            <h3>Total Penjualan</h3>
+            <p class="stat-value" id="statMonthSales">Rp 0</p>
+            <p class="stat-label">Bulan berjalan</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-content">
+            <h3>User Aktif</h3>
+            <p class="stat-value" id="statTotalUsers">0</p>
+            <p class="stat-label">Total user aktif</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div style="margin-bottom:10px;">
+        <h3 style="font-size:14px;color:#7f8c8d;font-weight:600;
+                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
+          ⚡ Aksi Cepat
+        </h3>
+      </div>
+      <div class="quick-actions-grid">
+        <a href="kasir.html" class="quick-action-card">
+          <div class="quick-action-icon">🛒</div>
+          <div class="quick-action-text">
+            <strong>Kasir</strong>
+            <small>Buat transaksi baru</small>
+          </div>
+          <div class="quick-action-shortcut"><kbd>Ctrl+N</kbd></div>
+        </a>
+        <a href="products.html" class="quick-action-card">
+          <div class="quick-action-icon">📦</div>
+          <div class="quick-action-text">
+            <strong>Produk</strong>
+            <small>Kelola produk & stok</small>
+          </div>
+          <div class="quick-action-shortcut"><kbd>Ctrl+P</kbd></div>
+        </a>
+        <a href="transactions.html" class="quick-action-card">
+          <div class="quick-action-icon">💳</div>
+          <div class="quick-action-text">
+            <strong>Transaksi</strong>
+            <small>Riwayat transaksi</small>
+          </div>
+          <div class="quick-action-shortcut"><kbd>Ctrl+T</kbd></div>
+        </a>
+        <a href="finance.html" class="quick-action-card" id="qaFinance">
+          <div class="quick-action-icon">💰</div>
+          <div class="quick-action-text">
+            <strong>Keuangan</strong>
+            <small>Kas, pengeluaran, pembelian</small>
+          </div>
+          <div class="quick-action-shortcut"><kbd>Ctrl+F</kbd></div>
+        </a>
+        <a href="reports.html" class="quick-action-card" id="qaReports">
+          <div class="quick-action-icon">📈</div>
+          <div class="quick-action-text">
+            <strong>Laporan</strong>
+            <small>Analisis & export data</small>
+          </div>
+          <div class="quick-action-shortcut"><kbd>Ctrl+⇧+R</kbd></div>
+        </a>
+        <a href="settings.html" class="quick-action-card" id="qaSettings">
+          <div class="quick-action-icon">⚙️</div>
+          <div class="quick-action-text">
+            <strong>Pengaturan</strong>
+            <small>Konfigurasi aplikasi</small>
+          </div>
+          <div class="quick-action-shortcut"><kbd>Ctrl+⇧+S</kbd></div>
+        </a>
+      </div>
+
     </main>
   </div>
 
   <script src="../js/utils.js"></script>
   <script src="../js/menu.js"></script>
+  <script src="../js/notification.js"></script>
   <script src="../js/dashboard.js"></script>
 </body>
 </html>

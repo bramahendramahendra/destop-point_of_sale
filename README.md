@@ -1,6 +1,7 @@
 # POS Retail - Step 1
 
-Aplikasi Point of Sale (POS) Desktop untuk Toko Retail menggunakan Electron.
+Aplikasi Point of Sale (POS) desktop untuk toko retail, dibangun dengan Electron + Vanilla JavaScript + SQLite.
+
 
 ## Teknologi Stack
 - **Electron** - Framework untuk aplikasi desktop
@@ -8,7 +9,26 @@ Aplikasi Point of Sale (POS) Desktop untuk Toko Retail menggunakan Electron.
 - **SQLite (better-sqlite3)** - Database lokal
 - **bcryptjs** - Enkripsi password
 
-## Instalasi
+## ✅ Fitur Lengkap
+
+- Multi-user dengan role (Owner, Admin, Kasir)
+- Manajemen Produk & Kategori (CRUD + barcode)
+- Transaksi Penjualan (multi payment method, diskon, pajak)
+- Manajemen Kas Harian per kasir
+- Pengeluaran Operasional & Pembelian Stok
+- Laporan Penjualan, Laba Rugi, Stok, Kasir
+- Export PDF & Excel (via CDN library)
+- Backup & Restore Database
+- Settings & Konfigurasi Toko
+- Keyboard Shortcuts Global
+- Toast Notification System
+- Loading States & Konfirmasi Dialog
+
+🚀 Instalasi & Menjalankan
+
+### Prasyarat
+- Node.js >= 16.x
+- npm >= 8.x
 
 ### 1. Clone atau Download Project
 ```bash
@@ -34,12 +54,47 @@ npm start
 npm run dev
 ```
 
-## Login Default
+## 🔑 Login Default
 
 Gunakan kredensial berikut untuk login pertama kali:
 
-- **Username:** admin
-- **Password:** admin123
+| Username | Password | Role  |
+|----------|----------|-------|
+| admin    | admin123 | owner |
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut      | Fungsi       |
+|---------------|--------------|
+| Ctrl+N        | Kasir        |
+| Ctrl+P        | Produk       |
+| Ctrl+T        | Transaksi    |
+| Ctrl+F        | Keuangan     |
+| Ctrl+Shift+R  | Laporan      |
+| Ctrl+U        | Pengguna     |
+| Ctrl+Shift+S  | Pengaturan   |
+| Ctrl+L        | Logout       |
+
+
+
+## 📦 Build untuk Distribusi
+
+```bash
+# Install electron-builder (sudah ada di devDependencies)
+npm install
+
+# Build Windows installer (.exe)
+npm run build:win
+
+# Build Linux AppImage
+npm run build:linux
+
+# Output ada di folder: dist/
+```
+
+> **Catatan Build:** Pastikan folder `assets/` berisi `icon.ico` (Windows) dan `icon.png` (Linux) sebelum build.
+
+
 
 ## Fitur Step 1
 
@@ -354,34 +409,76 @@ Kasir B login → Tidak bisa lihat kas A ✅
 Owner login → Bisa lihat kas A & B ✅
 
 
-## Struktur Folder
+## 🗂️ Struktur Folder
 ```
 pos-retail/
-├── package.json              # NPM configuration
-├── main.js                   # Electron main process
-├── preload.js               # Electron preload script
+├── package.json
+├── main.js                  # Electron main process
+├── preload.js               # Context bridge IPC
 ├── pos-retail.db            # SQLite database (auto-generated)
 ├── database/
-│   ├── db.js                # Database connection & helpers
-│   └── init.js              # Database initialization
+│   ├── db.js                # Database helper (sql.js)
+│   └── init.js              # Schema & seed data
 ├── src/
 │   ├── views/
-│   │   ├── login.html       # Login page
-│   │   └── dashboard.html   # Dashboard page
+│   │   ├── login.html
+│   │   ├── dashboard.html
+│   │   ├── users.html
+│   │   ├── products.html
+│   │   ├── kasir.html
+│   │   ├── transactions.html
+│   │   ├── finance.html
+│   │   ├── my-cash.html
+│   │   ├── reports.html     # ← Step 6
+│   │   └── settings.html    # ← Step 6
 │   ├── css/
-│   │   └── style.css        # Global styles
+│   │   └── style.css
 │   └── js/
-│       ├── auth.js          # Authentication utilities
-│       └── dashboard.js     # Dashboard functionality
-└── README.md                # This file
+│       ├── utils.js
+│       ├── auth.js
+│       ├── menu.js
+│       ├── notification.js  # ← Step 6
+│       ├── dashboard.js
+│       ├── users.js
+│       ├── products.js
+│       ├── kasir.js
+│       ├── transactions.js
+│       ├── finance.js
+│       ├── my-cash.js
+│       ├── reports.js       # ← Step 6
+│       └── settings.js      # ← Step 6
+└── assets/
+├── icon.png
+└── icon.ico
 ```
 
-## Troubleshooting
+
+## 🔧 Tech Stack
+
+| Teknologi        | Versi     | Kegunaan                    |
+|------------------|-----------|-----------------------------|
+| Electron         | ^28.0.0   | Desktop app framework       |
+| sql.js           | ^1.8.0    | SQLite di renderer process  |
+| bcryptjs         | ^2.4.3    | Hash password               |
+| Chart.js         | ^4.4.0    | Grafik (via CDN)            |
+| jsPDF            | ^2.5.1    | Export PDF (via CDN)        |
+| jsPDF-AutoTable  | ^3.8.0    | Tabel di PDF (via CDN)      |
+| SheetJS (xlsx)   | ^0.18.5   | Export Excel (via CDN)      |
+| electron-builder | ^24.9.1   | Build installer             |
+
+
+## ⚠️ Troubleshooting
 
 ### Error saat `npm install`
 - Pastikan Node.js sudah terinstall (minimal v16)
 - Pastikan npm sudah terinstall
 - Coba hapus folder `node_modules` dan file `package-lock.json`, lalu install ulang
+
+```bash
+# Hapus node_modules dan lock file, install ulang
+rm -rf node_modules package-lock.json
+npm install
+```
 
 ### Aplikasi tidak bisa dibuka
 - Cek console untuk error messages
@@ -392,10 +489,20 @@ pos-retail/
 - Pastikan database sudah terinisialisasi
 - Cek file `pos-retail.db` ada di root folder
 - Gunakan kredensial default: admin / admin123
+- Hapus `pos-retail.db` → restart app → database dibuat ulang dengan user default
 
 ### Database error
 - Hapus file `pos-retail.db`
 - Jalankan ulang aplikasi, database akan dibuat otomatis
+
+**Export PDF/Excel tidak berjalan**
+- Pastikan ada koneksi internet saat pertama kali buka halaman Laporan (Chart.js, jsPDF, XLSX di-load via CDN)
+- Atau download library dan simpan lokal di `src/lib/`
+
+**Build error: icon tidak ditemukan**
+- Buat folder `assets/` di root project
+- Sediakan `icon.ico` (256×256) untuk Windows
+- Sediakan `icon.png` (512×512) untuk Linux
 
 ## Next Steps
 
@@ -411,6 +518,10 @@ Setelah Step 1 selesai, development akan dilanjutkan dengan:
 Jika ada pertanyaan atau issue, silakan dokumentasikan di testing checklist.
 
 ---
+
+## 📄 License
+
+MIT — Free to use and modify.
 
 **Version:** 1.0.0 - Step 1  
 **Last Updated:** 2026-02-12

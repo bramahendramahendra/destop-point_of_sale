@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('api', {
     logout: () => ipcRenderer.invoke('auth:logout'),
     getCurrentUser: () => ipcRenderer.invoke('auth:getCurrentUser')
   },
+
+  dashboard: {
+    getStats: () => ipcRenderer.invoke('dashboard:getStats')
+  },
+
   users: {
     getAll: () => ipcRenderer.invoke('users:getAll'),
     getById: (id) => ipcRenderer.invoke('users:getById', id),
@@ -65,8 +70,46 @@ contextBridge.exposeInMainWorld('api', {
     getDashboard: (filters) => ipcRenderer.invoke('finance:getDashboard', filters),
     getTopProducts: (filters) => ipcRenderer.invoke('finance:getTopProducts', filters)
   },
+  reports: {
+    getSalesReport: (filters) => ipcRenderer.invoke('reports:getSalesReport', filters),
+    getProfitLossReport: (filters) => ipcRenderer.invoke('reports:getProfitLossReport', filters),
+    getStockReport: (filters) => ipcRenderer.invoke('reports:getStockReport', filters),
+    getCashierReport: (filters) => ipcRenderer.invoke('reports:getCashierReport', filters),
+    getUsers: () => ipcRenderer.invoke('reports:getUsers')
+  },
+  settings: {
+    getAll: () => ipcRenderer.invoke('settings:getAll'),
+    get: (key) => ipcRenderer.invoke('settings:get', key),
+    save: (data) => ipcRenderer.invoke('settings:save', data),
+    reset: () => ipcRenderer.invoke('settings:reset')
+  },
+  backup: {
+    create: () => ipcRenderer.invoke('backup:create'),
+    restore: (filePath) => ipcRenderer.invoke('backup:restore', filePath),
+    selectFile: () => ipcRenderer.invoke('backup:selectFile'),
+    selectFolder: () => ipcRenderer.invoke('backup:selectFolder')
+  },
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
+  },
   window: {
     loadLoginPage: () => ipcRenderer.send('load-login-page'),
     openReceipt: (transactionId) => ipcRenderer.send('window:openReceipt', transactionId)
+  },
+  shortcuts: {
+    onNavigate: (callback) => {
+      const channels = [
+        'shortcut:kasir', 'shortcut:products', 'shortcut:transactions',
+        'shortcut:finance', 'shortcut:reports', 'shortcut:users',
+        'shortcut:settings', 'shortcut:logout'
+      ];
+      channels.forEach(ch => {
+        ipcRenderer.on(ch, () => callback(ch));
+      });
+    }
+  },
+  menuEvents: {
+    onBackup:  (cb) => ipcRenderer.on('menu:backup',  () => cb()),
+    onRestore: (cb) => ipcRenderer.on('menu:restore', () => cb())
   }
 });

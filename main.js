@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, dialog, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 let mainWindow;
@@ -11,14 +12,17 @@ const { initDatabase } = require('./database/init');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 1280,
     height: 800,
+    minWidth: 1024,
+    minHeight: 700,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    show: false
+    show: false,
+    icon: path.join(__dirname, 'assets', 'icon.png')
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src/views/login.html'));
@@ -27,6 +31,74 @@ function createWindow() {
     mainWindow.show();
     mainWindow.focus();
   });
+
+  // Build application menu
+  const menuTemplate = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Backup Database',
+          accelerator: 'CmdOrCtrl+B',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('menu:backup');
+          }
+        },
+        {
+          label: 'Restore Database',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('menu:restore');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Keluar',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => { app.quit(); }
+        }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => {
+            if (mainWindow) mainWindow.reload();
+          }
+        },
+        {
+          label: 'Toggle DevTools',
+          accelerator: 'F12',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.toggleDevTools();
+          }
+        },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Tentang Aplikasi',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'Tentang POS Retail',
+              message: 'POS Retail v1.0.0',
+              detail: 'Aplikasi Point of Sale Desktop\nDibangun dengan Electron + SQLite\n\nLogin Default:\nUsername: admin\nPassword: admin123'
+            });
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
 
   // Open DevTools in development
   if (process.argv.includes('--dev')) {
@@ -41,7 +113,7 @@ function createWindow() {
 // Initialize database when app is ready
 app.whenReady().then(async () => {
   console.log('Initializing database...');
-  
+
   try {
     await dbModule.initDb();
     await initDatabase();
@@ -49,8 +121,42 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error('Database initialization error:', error);
   }
-  
+
   createWindow();
+
+  // Register global keyboard shortcuts
+  app.on('browser-window-focus', () => {
+    // Navigation shortcuts — kirim ke renderer
+    const shortcuts = [
+      { key: 'CmdOrCtrl+N', channel: 'shortcut:kasir' },
+      { key: 'CmdOrCtrl+P', channel: 'shortcut:products' },
+      { key: 'CmdOrCtrl+T', channel: 'shortcut:transactions' },
+      { key: 'CmdOrCtrl+F', channel: 'shortcut:finance' },
+      { key: 'CmdOrCtrl+Shift+R', channel: 'shortcut:reports' },
+      { key: 'CmdOrCtrl+U', channel: 'shortcut:users' },
+      { key: 'CmdOrCtrl+Shift+S', channel: 'shortcut:settings' },
+      { key: 'CmdOrCtrl+L', channel: 'shortcut:logout' }
+    ];
+
+    shortcuts.forEach(({ key, channel }) => {
+      globalShortcut.register(key, () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(channel);
+        }
+      });
+    });
+  });
+
+  app.on('browser-window-blur', () => {
+    globalShortcut.unregisterAll();
+  });
+
+  // Auto backup on startup
+  try {
+    await runAutoBackupIfNeeded();
+  } catch (err) {
+    console.error('Auto backup error:', err);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -60,10 +166,73 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  globalShortcut.unregisterAll();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+// ============================================
+// AUTO BACKUP HELPER
+// ============================================
+
+async function runAutoBackupIfNeeded() {
+  try {
+    const autoBackupSetting = dbModule.get("SELECT value FROM settings WHERE key = 'auto_backup'");
+    if (!autoBackupSetting || autoBackupSetting.value !== '1') return;
+
+    const backupDaysSetting = dbModule.get("SELECT value FROM settings WHERE key = 'backup_days'");
+    const daysToKeep = parseInt(backupDaysSetting?.value || '7', 10);
+
+    const userDataPath = app.getPath('userData');
+    const backupDir = path.join(userDataPath, 'backups');
+
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    // Check if backup already done today
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayBackupExists = fs.readdirSync(backupDir)
+      .some(f => f.startsWith(`backup_${today}`));
+
+    if (todayBackupExists) {
+      console.log('Auto backup already done today, skipping');
+      return;
+    }
+
+    // Create backup
+    const dbPath = path.join(__dirname, 'pos-retail.db');
+    if (!fs.existsSync(dbPath)) return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const backupFilename = `backup_${timestamp}.db`;
+    const backupPath = path.join(backupDir, backupFilename);
+
+    fs.copyFileSync(dbPath, backupPath);
+    console.log(`Auto backup created: ${backupFilename}`);
+
+    // Clean old backups
+    const files = fs.readdirSync(backupDir)
+      .filter(f => f.endsWith('.db'))
+      .map(f => ({
+        name: f,
+        time: fs.statSync(path.join(backupDir, f)).mtime.getTime()
+      }))
+      .sort((a, b) => a.time - b.time);
+
+    const cutoff = Date.now() - daysToKeep * 24 * 60 * 60 * 1000;
+    files.forEach(file => {
+      if (file.time < cutoff) {
+        fs.unlinkSync(path.join(backupDir, file.name));
+        console.log(`Deleted old backup: ${file.name}`);
+      }
+    });
+
+  } catch (err) {
+    console.error('runAutoBackupIfNeeded error:', err);
+  }
+}
 
 // IPC Handler: Load login page
 ipcMain.on('load-login-page', (event) => {
@@ -1828,4 +1997,550 @@ ipcMain.on('window:openReceipt', (event, transactionId) => {
   receiptWindow.loadFile(path.join(__dirname, 'src/views/receipt.html'), {
     query: { id: transactionId.toString() }
   });
+});
+
+// ============================================
+// REPORTS IPC HANDLERS
+// ============================================
+
+// Get users list for filter dropdown
+ipcMain.handle('reports:getUsers', async () => {
+  try {
+    const users = dbModule.all(
+      'SELECT id, full_name, username, role FROM users WHERE is_active = 1 ORDER BY full_name'
+    );
+    return { success: true, users };
+  } catch (error) {
+    console.error('reports:getUsers error:', error);
+    return { success: false, message: 'Gagal memuat data user' };
+  }
+});
+
+// Sales Report
+ipcMain.handle('reports:getSalesReport', async (event, filters = {}) => {
+  try {
+    let whereClauses = ["t.status = 'completed'"];
+    const params = [];
+
+    if (filters.startDate) {
+      whereClauses.push('DATE(t.transaction_date) >= DATE(?)');
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      whereClauses.push('DATE(t.transaction_date) <= DATE(?)');
+      params.push(filters.endDate);
+    }
+    if (filters.userId) {
+      whereClauses.push('t.user_id = ?');
+      params.push(filters.userId);
+    }
+    if (filters.paymentMethod) {
+      whereClauses.push('t.payment_method = ?');
+      params.push(filters.paymentMethod);
+    }
+
+    const where = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    // Transactions detail
+    const transactions = dbModule.all(`
+      SELECT 
+        t.id,
+        t.transaction_code,
+        t.transaction_date,
+        t.total_amount,
+        t.payment_method,
+        t.customer_name,
+        u.full_name AS kasir_name,
+        (SELECT COUNT(*) FROM transaction_items ti WHERE ti.transaction_id = t.id) AS item_count,
+        (SELECT SUM(ti.quantity) FROM transaction_items ti WHERE ti.transaction_id = t.id) AS total_qty
+      FROM transactions t
+      LEFT JOIN users u ON t.user_id = u.id
+      ${where}
+      ORDER BY t.transaction_date DESC
+    `, params);
+
+    // Summary
+    const summary = dbModule.get(`
+      SELECT 
+        COUNT(*) AS total_transactions,
+        COALESCE(SUM(t.total_amount), 0) AS total_sales,
+        COALESCE(AVG(t.total_amount), 0) AS avg_per_transaction,
+        COALESCE(SUM(
+          (SELECT SUM(ti.quantity) FROM transaction_items ti WHERE ti.transaction_id = t.id)
+        ), 0) AS total_items_sold
+      FROM transactions t
+      ${where}
+    `, params);
+
+    // Chart data: sales per day
+    const chartData = dbModule.all(`
+      SELECT 
+        DATE(t.transaction_date) AS date,
+        COALESCE(SUM(t.total_amount), 0) AS total,
+        COUNT(*) AS count
+      FROM transactions t
+      ${where}
+      GROUP BY DATE(t.transaction_date)
+      ORDER BY DATE(t.transaction_date) ASC
+    `, params);
+
+    return { success: true, transactions, summary, chartData };
+  } catch (error) {
+    console.error('reports:getSalesReport error:', error);
+    return { success: false, message: 'Gagal memuat laporan penjualan' };
+  }
+});
+
+// Profit Loss Report
+ipcMain.handle('reports:getProfitLossReport', async (event, filters = {}) => {
+  try {
+    let whereClauses = ["t.status = 'completed'"];
+    const params = [];
+
+    if (filters.startDate) {
+      whereClauses.push('DATE(t.transaction_date) >= DATE(?)');
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      whereClauses.push('DATE(t.transaction_date) <= DATE(?)');
+      params.push(filters.endDate);
+    }
+
+    const where = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    // Revenue from sales
+    const revenueRow = dbModule.get(`
+      SELECT COALESCE(SUM(total_amount), 0) AS revenue
+      FROM transactions t ${where}
+    `, params);
+
+    // COGS: sum(quantity * purchase_price) dari transaction_items
+    const cogsRow = dbModule.get(`
+      SELECT COALESCE(SUM(ti.quantity * p.purchase_price), 0) AS cogs
+      FROM transaction_items ti
+      JOIN transactions t ON ti.transaction_id = t.id
+      JOIN products p ON ti.product_id = p.id
+      ${where.replace(/WHERE/, 'WHERE')}
+    `, params);
+
+    // Expenses
+    let expWhere = 'WHERE 1=1';
+    const expParams = [];
+    if (filters.startDate) {
+      expWhere += ' AND DATE(expense_date) >= DATE(?)';
+      expParams.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      expWhere += ' AND DATE(expense_date) <= DATE(?)';
+      expParams.push(filters.endDate);
+    }
+
+    const expensesRow = dbModule.get(`
+      SELECT COALESCE(SUM(amount), 0) AS total_expenses
+      FROM expenses ${expWhere}
+    `, expParams);
+
+    const expensesByCategory = dbModule.all(`
+      SELECT category, COALESCE(SUM(amount), 0) AS total
+      FROM expenses ${expWhere}
+      GROUP BY category
+      ORDER BY total DESC
+    `, expParams);
+
+    // Sales by product category
+    const salesByCategory = dbModule.all(`
+      SELECT 
+        COALESCE(c.name, 'Tanpa Kategori') AS category_name,
+        COALESCE(SUM(ti.subtotal), 0) AS revenue,
+        COALESCE(SUM(ti.quantity * p.purchase_price), 0) AS cogs,
+        COALESCE(SUM(ti.subtotal) - SUM(ti.quantity * p.purchase_price), 0) AS gross_profit
+      FROM transaction_items ti
+      JOIN transactions t ON ti.transaction_id = t.id
+      JOIN products p ON ti.product_id = p.id
+      LEFT JOIN categories c ON p.category_id = c.id
+      ${where}
+      GROUP BY c.id, c.name
+      ORDER BY revenue DESC
+    `, params);
+
+    const revenue        = revenueRow?.revenue || 0;
+    const cogs           = cogsRow?.cogs || 0;
+    const grossProfit    = revenue - cogs;
+    const totalExpenses  = expensesRow?.total_expenses || 0;
+    const netProfit      = grossProfit - totalExpenses;
+
+    return {
+      success: true,
+      summary: { revenue, cogs, grossProfit, totalExpenses, netProfit },
+      expensesByCategory,
+      salesByCategory
+    };
+  } catch (error) {
+    console.error('reports:getProfitLossReport error:', error);
+    return { success: false, message: 'Gagal memuat laporan laba rugi' };
+  }
+});
+
+// Stock Report
+ipcMain.handle('reports:getStockReport', async (event, filters = {}) => {
+  try {
+    let whereClauses = [];
+    const params = [];
+
+    if (filters.categoryId) {
+      whereClauses.push('p.category_id = ?');
+      params.push(filters.categoryId);
+    }
+    if (filters.stockStatus === 'low') {
+      whereClauses.push('p.stock > 0 AND p.stock <= p.min_stock');
+    } else if (filters.stockStatus === 'empty') {
+      whereClauses.push('p.stock = 0');
+    } else if (filters.stockStatus === 'safe') {
+      whereClauses.push('p.stock > p.min_stock');
+    }
+
+    const where = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    const products = dbModule.all(`
+      SELECT 
+        p.id,
+        p.barcode,
+        p.name,
+        p.stock,
+        p.min_stock,
+        p.unit,
+        p.purchase_price,
+        p.selling_price,
+        p.is_active,
+        COALESCE(c.name, 'Tanpa Kategori') AS category_name,
+        (p.stock * p.purchase_price) AS inventory_value,
+        CASE
+          WHEN p.stock = 0 THEN 'empty'
+          WHEN p.stock <= p.min_stock THEN 'low'
+          ELSE 'safe'
+        END AS stock_status
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ${where}
+      ORDER BY p.stock ASC, p.name ASC
+    `, params);
+
+    const summary = dbModule.get(`
+      SELECT
+        COUNT(*) AS total_sku,
+        COALESCE(SUM(p.stock * p.purchase_price), 0) AS total_inventory_value,
+        SUM(CASE WHEN p.is_active = 1 THEN 1 ELSE 0 END) AS active_products,
+        SUM(CASE WHEN p.stock > 0 AND p.stock <= p.min_stock THEN 1 ELSE 0 END) AS low_stock_count,
+        SUM(CASE WHEN p.stock = 0 THEN 1 ELSE 0 END) AS empty_stock_count
+      FROM products p
+    `);
+
+    const categories = dbModule.all('SELECT id, name FROM categories ORDER BY name');
+
+    return { success: true, products, summary, categories };
+  } catch (error) {
+    console.error('reports:getStockReport error:', error);
+    return { success: false, message: 'Gagal memuat laporan stok' };
+  }
+});
+
+// Cashier Report
+ipcMain.handle('reports:getCashierReport', async (event, filters = {}) => {
+  try {
+    let whereClauses = ["t.status = 'completed'"];
+    const params = [];
+
+    if (filters.startDate) {
+      whereClauses.push('DATE(t.transaction_date) >= DATE(?)');
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      whereClauses.push('DATE(t.transaction_date) <= DATE(?)');
+      params.push(filters.endDate);
+    }
+    if (filters.userId) {
+      whereClauses.push('t.user_id = ?');
+      params.push(filters.userId);
+    }
+
+    const where = 'WHERE ' + whereClauses.join(' AND ');
+
+    const cashierStats = dbModule.all(`
+      SELECT 
+        u.id,
+        u.full_name,
+        u.username,
+        u.role,
+        COUNT(t.id) AS total_transactions,
+        COALESCE(SUM(t.total_amount), 0) AS total_sales,
+        COALESCE(AVG(t.total_amount), 0) AS avg_per_transaction,
+        COALESCE(MAX(t.total_amount), 0) AS highest_transaction
+      FROM users u
+      LEFT JOIN transactions t ON t.user_id = u.id AND ${whereClauses.join(' AND ')}
+      WHERE u.is_active = 1
+      GROUP BY u.id, u.full_name, u.username, u.role
+      ORDER BY total_sales DESC
+    `, params);
+
+    // Daily chart per kasir (for bar chart)
+    const dailyChart = dbModule.all(`
+      SELECT 
+        DATE(t.transaction_date) AS date,
+        u.full_name AS kasir_name,
+        COUNT(t.id) AS transactions,
+        COALESCE(SUM(t.total_amount), 0) AS total
+      FROM transactions t
+      JOIN users u ON t.user_id = u.id
+      ${where}
+      GROUP BY DATE(t.transaction_date), t.user_id
+      ORDER BY date ASC
+    `, params);
+
+    return { success: true, cashierStats, dailyChart };
+  } catch (error) {
+    console.error('reports:getCashierReport error:', error);
+    return { success: false, message: 'Gagal memuat laporan kasir' };
+  }
+});
+
+// ============================================
+// SETTINGS IPC HANDLERS
+// ============================================
+
+ipcMain.handle('settings:getAll', async () => {
+  try {
+    const rows = dbModule.all('SELECT key, value FROM settings');
+    const settings = {};
+    rows.forEach(row => { settings[row.key] = row.value; });
+    return { success: true, settings };
+  } catch (error) {
+    console.error('settings:getAll error:', error);
+    return { success: false, message: 'Gagal memuat pengaturan' };
+  }
+});
+
+ipcMain.handle('settings:get', async (event, key) => {
+  try {
+    const row = dbModule.get('SELECT value FROM settings WHERE key = ?', [key]);
+    return { success: true, value: row?.value ?? null };
+  } catch (error) {
+    console.error('settings:get error:', error);
+    return { success: false, message: 'Gagal memuat pengaturan' };
+  }
+});
+
+ipcMain.handle('settings:save', async (event, data) => {
+  try {
+    Object.entries(data).forEach(([key, value]) => {
+      dbModule.run(
+        `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+        [key, value ?? '']
+      );
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('settings:save error:', error);
+    return { success: false, message: 'Gagal menyimpan pengaturan' };
+  }
+});
+
+ipcMain.handle('settings:reset', async () => {
+  try {
+    const defaults = [
+      ['store_name', 'TOKO RETAIL'],
+      ['store_address', 'Jl. Contoh No. 123, Kota'],
+      ['store_phone', '021-12345678'],
+      ['store_email', 'info@tokoretail.com'],
+      ['tax_enabled', '0'],
+      ['tax_percent', '0'],
+      ['receipt_footer', 'Terima Kasih - Barang yang sudah dibeli tidak dapat ditukar'],
+      ['auto_backup', '1'],
+      ['backup_days', '7'],
+      ['store_logo', '']
+    ];
+    defaults.forEach(([key, value]) => {
+      dbModule.run(
+        `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+        [key, value]
+      );
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('settings:reset error:', error);
+    return { success: false, message: 'Gagal reset pengaturan' };
+  }
+});
+
+// ============================================
+// BACKUP IPC HANDLERS
+// ============================================
+
+ipcMain.handle('backup:selectFolder', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+      title: 'Pilih Folder Backup'
+    });
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, canceled: true };
+    }
+    return { success: true, folderPath: result.filePaths[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('backup:selectFile', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [{ name: 'Database', extensions: ['db'] }],
+      title: 'Pilih File Backup'
+    });
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, canceled: true };
+    }
+    return { success: true, filePath: result.filePaths[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('backup:create', async () => {
+  try {
+    const dbPath = path.join(__dirname, 'pos-retail.db');
+    if (!fs.existsSync(dbPath)) {
+      return { success: false, message: 'File database tidak ditemukan' };
+    }
+
+    // Ask user where to save
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const defaultFilename = `backup_${timestamp}.db`;
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Simpan Backup',
+      defaultPath: defaultFilename,
+      filters: [{ name: 'Database Backup', extensions: ['db'] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    fs.copyFileSync(dbPath, result.filePath);
+
+    return { success: true, filePath: result.filePath, filename: path.basename(result.filePath) };
+  } catch (error) {
+    console.error('backup:create error:', error);
+    return { success: false, message: 'Gagal membuat backup: ' + error.message };
+  }
+});
+
+ipcMain.handle('backup:restore', async (event, filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, message: 'File backup tidak ditemukan' };
+    }
+
+    const dbPath = path.join(__dirname, 'pos-retail.db');
+
+    // Create auto-backup before restore
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const autoBackupPath = path.join(__dirname, `pos-retail.backup-before-restore.${timestamp}.db`);
+    if (fs.existsSync(dbPath)) {
+      fs.copyFileSync(dbPath, autoBackupPath);
+    }
+
+    // Copy backup file to db path
+    fs.copyFileSync(filePath, dbPath);
+
+    // Restart app
+    app.relaunch();
+    app.exit(0);
+
+    return { success: true };
+  } catch (error) {
+    console.error('backup:restore error:', error);
+    return { success: false, message: 'Gagal restore database: ' + error.message };
+  }
+});
+
+// Shell: open external URL
+ipcMain.handle('shell:openExternal', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    return { success: false };
+  }
+});
+
+// ============================================
+// DASHBOARD STATS IPC HANDLER
+// ============================================
+
+ipcMain.handle('dashboard:getStats', async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Total penjualan hari ini
+    const salesRow = dbModule.get(`
+      SELECT 
+        COALESCE(SUM(total_amount), 0) AS total_sales,
+        COUNT(*) AS total_transactions
+      FROM transactions
+      WHERE DATE(transaction_date) = DATE(?)
+      AND status = 'completed'
+    `, [today]);
+
+    // Total produk aktif
+    const productsRow = dbModule.get(
+      'SELECT COUNT(*) AS total FROM products WHERE is_active = 1'
+    );
+
+    // Stok menipis (stock <= min_stock tapi > 0)
+    const lowStockRow = dbModule.get(
+      'SELECT COUNT(*) AS total FROM products WHERE stock <= min_stock AND stock > 0 AND is_active = 1'
+    );
+
+    // Stok habis
+    const emptyStockRow = dbModule.get(
+      'SELECT COUNT(*) AS total FROM products WHERE stock = 0 AND is_active = 1'
+    );
+
+    // Total transaksi bulan ini
+    const firstOfMonth = new Date();
+    firstOfMonth.setDate(1);
+    const monthStart = firstOfMonth.toISOString().split('T')[0];
+
+    const monthSalesRow = dbModule.get(`
+      SELECT COALESCE(SUM(total_amount), 0) AS total_sales
+      FROM transactions
+      WHERE DATE(transaction_date) >= DATE(?)
+      AND status = 'completed'
+    `, [monthStart]);
+
+    // Total user aktif
+    const usersRow = dbModule.get(
+      'SELECT COUNT(*) AS total FROM users WHERE is_active = 1'
+    );
+
+    return {
+      success: true,
+      stats: {
+        today_sales:       salesRow?.total_sales       || 0,
+        today_transactions: salesRow?.total_transactions || 0,
+        total_products:    productsRow?.total          || 0,
+        low_stock:         lowStockRow?.total          || 0,
+        empty_stock:       emptyStockRow?.total        || 0,
+        month_sales:       monthSalesRow?.total_sales  || 0,
+        total_users:       usersRow?.total             || 0
+      }
+    };
+  } catch (error) {
+    console.error('dashboard:getStats error:', error);
+    return { success: false, message: 'Gagal memuat statistik dashboard' };
+  }
 });

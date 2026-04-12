@@ -54,6 +54,20 @@ function renderMenu(activePage) {
       roles: ['owner', 'admin']
     },
     {
+      id: 'laporan',
+      icon: '📈',
+      text: 'Laporan',
+      href: 'reports.html',
+      roles: ['owner', 'admin']
+    },
+    {
+      id: 'pengaturan',
+      icon: '⚙️',
+      text: 'Pengaturan',
+      href: 'settings.html',
+      roles: ['owner', 'admin']
+    },
+    {
       id: 'pengguna',
       icon: '👥',
       text: 'Pengguna',
@@ -132,6 +146,29 @@ function initializePageLayout(activePage) {
   // Render navbar and menu
   renderNavbar();
   renderMenu(activePage);
+
+  // Global shortcut: Ctrl+L = Logout
+  if (window.api?.shortcuts) {
+    window.api.shortcuts.onNavigate((channel) => {
+      if (channel === 'shortcut:logout') {
+        setupLogoutButton(); // trigger existing logout
+        document.getElementById('logoutBtn')?.click();
+        return;
+      }
+      // Navigate
+      const MAP = {
+        'shortcut:kasir':        'kasir.html',
+        'shortcut:products':     'products.html',
+        'shortcut:transactions': 'transactions.html',
+        'shortcut:finance':      'finance.html',
+        'shortcut:reports':      'reports.html',
+        'shortcut:users':        'users.html',
+        'shortcut:settings':     'settings.html'
+      };
+      const target = MAP[channel];
+      if (target) window.location.href = target;
+    });
+  }
 
   return true;
 }

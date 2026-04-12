@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>📈 Laporan</h1>
+      </div>
+
+      <!-- Tabs Navigation -->
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button active" data-tab="sales">Laporan Penjualan</button>
+          <button class="tab-button" data-tab="profit-loss">Laporan Laba Rugi</button>
+          <button class="tab-button" data-tab="stock">Laporan Stok</button>
+          <button class="tab-button" data-tab="cashier">Laporan Kasir</button>
+        </div>
+      </div>
+
+      <!-- ==============================
+           TAB: LAPORAN PENJUALAN
+           ============================== -->
+      <div id="sales-tab" class="tab-content active">
+
+        <!-- Filters -->
+        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
+          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+            <select id="salesPeriod" class="filter-select">
+              <option value="today">Hari Ini</option>
+              <option value="yesterday">Kemarin</option>
+              <option value="7days" selected>7 Hari Terakhir</option>
+              <option value="30days">30 Hari Terakhir</option>
+              <option value="this_month">Bulan Ini</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            <div id="salesCustomRange" style="display:none;gap:8px;display:none;align-items:center;">
+              <input type="date" id="salesStartDate" class="filter-input">
+              <span style="color:#7f8c8d;">s/d</span>
+              <input type="date" id="salesEndDate" class="filter-input">
+            </div>
+            <select id="salesUserFilter" class="filter-select">
+              <option value="">Semua Kasir</option>
+            </select>
+            <select id="salesPaymentFilter" class="filter-select">
+              <option value="">Semua Metode</option>
+              <option value="cash">Cash</option>
+              <option value="debit">Debit</option>
+              <option value="credit">Kredit</option>
+              <option value="transfer">Transfer</option>
+              <option value="qris">QRIS</option>
+            </select>
+            <button class="btn btn-primary" id="btnFilterSales">🔍 Filter</button>
+          </div>
+          <div class="filter-group" style="margin-left:auto;">
+            <button class="btn btn-secondary" id="btnExportSalesPDF">📄 Export PDF</button>
+            <button class="btn btn-secondary" id="btnExportSalesExcel">📊 Export Excel</button>
+            <button class="btn btn-secondary" id="btnPrintSales">🖨️ Print</button>
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="stats-container" id="salesSummaryCards">
+          <div class="stat-card stat-card-primary">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+              <h3>Total Penjualan</h3>
+              <p class="stat-value" id="salesTotalAmount">Rp 0</p>
+              <p class="stat-label">Periode terpilih</p>
+            </div>
+          </div>
+          <div class="stat-card stat-card-success">
+            <div class="stat-icon">🧾</div>
+            <div class="stat-content">
+              <h3>Jumlah Transaksi</h3>
+              <p class="stat-value" id="salesTotalTransactions">0</p>
+              <p class="stat-label">Transaksi</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <h3>Rata-rata / Transaksi</h3>
+              <p class="stat-value" id="salesAvgTransaction">Rp 0</p>
+              <p class="stat-label">Per transaksi</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+              <h3>Total Item Terjual</h3>
+              <p class="stat-value" id="salesTotalItems">0</p>
+              <p class="stat-label">Item</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3>📈 Grafik Penjualan Harian</h3>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="salesLineChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-container" style="margin-top:20px;">
+          <div class="table-toolbar">
+            <span style="font-weight:600;color:#2c3e50;">Detail Transaksi</span>
+            <span id="salesTableInfo" style="font-size:13px;color:#7f8c8d;"></span>
+          </div>
+          <table class="data-table" id="salesTable">
+            <thead>
+              <tr>
+                <th>Tanggal & Jam</th>
+                <th>Kode Transaksi</th>
+                <th>Kasir</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Metode Bayar</th>
+              </tr>
+            </thead>
+            <tbody id="salesTableBody">
+              <tr><td colspan="7" class="text-center text-muted">Klik Filter untuk memuat data</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-container" id="salesPagination" style="display:none;">
+          <button class="btn btn-secondary btn-sm" id="salesPrevPage">← Prev</button>
+          <span id="salesPageInfo" style="font-size:14px;color:#2c3e50;"></span>
+          <button class="btn btn-secondary btn-sm" id="salesNextPage">Next →</button>
+        </div>
+      </div>
+
+      <!-- ==============================
+           TAB: LAPORAN LABA RUGI
+           ============================== -->
+      <div id="profit-loss-tab" class="tab-content">
+
+        <!-- Filters -->
+        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
+          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+            <select id="plPeriod" class="filter-select">
+              <option value="today">Hari Ini</option>
+              <option value="yesterday">Kemarin</option>
+              <option value="7days">7 Hari Terakhir</option>
+              <option value="30days" selected>30 Hari Terakhir</option>
+              <option value="this_month">Bulan Ini</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            <div id="plCustomRange" style="display:none;gap:8px;align-items:center;">
+              <input type="date" id="plStartDate" class="filter-input">
+              <span style="color:#7f8c8d;">s/d</span>
+              <input type="date" id="plEndDate" class="filter-input">
+            </div>
+            <button class="btn btn-primary" id="btnFilterPL">🔍 Filter</button>
+          </div>
+          <div class="filter-group" style="margin-left:auto;">
+            <button class="btn btn-secondary" id="btnExportPLPDF">📄 Export PDF</button>
+          </div>
+        </div>
+
+        <!-- P&L Summary -->
+        <div class="pl-summary-grid">
+          <div class="pl-card pl-revenue">
+            <div class="pl-card-icon">💰</div>
+            <div class="pl-card-body">
+              <p class="pl-card-label">Pendapatan</p>
+              <p class="pl-card-value" id="plRevenue">Rp 0</p>
+              <p class="pl-card-sub">Dari penjualan</p>
+            </div>
+          </div>
+          <div class="pl-card pl-cogs">
+            <div class="pl-card-icon">🏷️</div>
+            <div class="pl-card-body">
+              <p class="pl-card-label">HPP / COGS</p>
+              <p class="pl-card-value" id="plCOGS">Rp 0</p>
+              <p class="pl-card-sub">Harga pokok penjualan</p>
+            </div>
+          </div>
+          <div class="pl-card pl-gross">
+            <div class="pl-card-icon">📈</div>
+            <div class="pl-card-body">
+              <p class="pl-card-label">Laba Kotor</p>
+              <p class="pl-card-value" id="plGrossProfit">Rp 0</p>
+              <p class="pl-card-sub">Pendapatan - HPP</p>
+            </div>
+          </div>
+          <div class="pl-card pl-expenses">
+            <div class="pl-card-icon">📤</div>
+            <div class="pl-card-body">
+              <p class="pl-card-label">Pengeluaran Operasional</p>
+              <p class="pl-card-value" id="plExpenses">Rp 0</p>
+              <p class="pl-card-sub">Total pengeluaran</p>
+            </div>
+          </div>
+          <div class="pl-card pl-net" id="plNetCard">
+            <div class="pl-card-icon">🏆</div>
+            <div class="pl-card-body">
+              <p class="pl-card-label">Laba Bersih</p>
+              <p class="pl-card-value" id="plNetProfit">Rp 0</p>
+              <p class="pl-card-sub">Laba kotor - pengeluaran</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Breakdown -->
+        <div class="charts-container" style="margin-top:20px;">
+          <!-- Sales by Category Table -->
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>📦 Penjualan per Kategori</h3>
+            </div>
+            <div class="table-container" style="box-shadow:none;">
+              <table class="data-table" id="plCategoryTable">
+                <thead>
+                  <tr>
+                    <th>Kategori</th>
+                    <th>Pendapatan</th>
+                    <th>HPP</th>
+                    <th>Laba Kotor</th>
+                    <th>Margin</th>
+                  </tr>
+                </thead>
+                <tbody id="plCategoryBody">
+                  <tr><td colspan="5" class="text-center text-muted">Klik Filter untuk memuat data</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Expense Pie Chart -->
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>🍩 Pengeluaran per Kategori</h3>
+            </div>
+            <div class="chart-wrapper" style="max-height:300px;">
+              <canvas id="expensePieChart"></canvas>
+            </div>
+            <div id="expensePieLegend" style="margin-top:12px;padding:0 16px 16px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================
+           TAB: LAPORAN STOK
+           ============================== -->
+      <div id="stock-tab" class="tab-content">
+
+        <!-- Filters -->
+        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
+          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+            <select id="stockCategoryFilter" class="filter-select">
+              <option value="">Semua Kategori</option>
+            </select>
+            <select id="stockStatusFilter" class="filter-select">
+              <option value="">Semua Status</option>
+              <option value="safe">Aman</option>
+              <option value="low">Stok Menipis</option>
+              <option value="empty">Stok Habis</option>
+            </select>
+            <button class="btn btn-primary" id="btnFilterStock">🔍 Filter</button>
+          </div>
+          <div class="filter-group" style="margin-left:auto;">
+            <button class="btn btn-secondary" id="btnExportStockExcel">📊 Export Excel</button>
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="stats-container">
+          <div class="stat-card stat-card-primary">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+              <h3>Total SKU</h3>
+              <p class="stat-value" id="stockTotalSKU">0</p>
+              <p class="stat-label">Jumlah produk</p>
+            </div>
+          </div>
+          <div class="stat-card stat-card-success">
+            <div class="stat-icon">💵</div>
+            <div class="stat-content">
+              <h3>Nilai Inventori</h3>
+              <p class="stat-value" id="stockInventoryValue">Rp 0</p>
+              <p class="stat-label">Total nilai stok</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+              <h3>Produk Aktif</h3>
+              <p class="stat-value" id="stockActiveProducts">0</p>
+              <p class="stat-label">Produk aktif</p>
+            </div>
+          </div>
+          <div class="stat-card stat-card-warning">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-content">
+              <h3>Stok Menipis</h3>
+              <p class="stat-value" id="stockLowCount">0</p>
+              <p class="stat-label">Perlu restock</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Low Stock Alert -->
+        <div id="stockAlertBox" class="alert-box alert-warning" style="display:none;">
+          <strong>⚠️ Perhatian!</strong>
+          <span id="stockAlertText"></span>
+        </div>
+
+        <!-- Products Table -->
+        <div class="table-container" style="margin-top:20px;">
+          <div class="table-toolbar">
+            <span style="font-weight:600;color:#2c3e50;">Data Stok Produk</span>
+            <span id="stockTableInfo" style="font-size:13px;color:#7f8c8d;"></span>
+          </div>
+          <table class="data-table" id="stockTable">
+            <thead>
+              <tr>
+                <th>Barcode</th>
+                <th>Nama Produk</th>
+                <th>Kategori</th>
+                <th style="text-align:center;">Stok</th>
+                <th style="text-align:center;">Min Stok</th>
+                <th style="text-align:center;">Status</th>
+                <th>Harga Beli</th>
+                <th>Nilai Stok</th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody">
+              <tr><td colspan="8" class="text-center text-muted">Memuat data stok...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==============================
+           TAB: LAPORAN KASIR
+           ============================== -->
+      <div id="cashier-tab" class="tab-content">
+
+        <!-- Filters -->
+        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
+          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+            <select id="cashierPeriod" class="filter-select">
+              <option value="today">Hari Ini</option>
+              <option value="yesterday">Kemarin</option>
+              <option value="7days" selected>7 Hari Terakhir</option>
+              <option value="30days">30 Hari Terakhir</option>
+              <option value="this_month">Bulan Ini</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            <div id="cashierCustomRange" style="display:none;gap:8px;align-items:center;">
+              <input type="date" id="cashierStartDate" class="filter-input">
+              <span style="color:#7f8c8d;">s/d</span>
+              <input type="date" id="cashierEndDate" class="filter-input">
+            </div>
+            <select id="cashierUserFilter" class="filter-select">
+              <option value="">Semua Kasir</option>
+            </select>
+            <button class="btn btn-primary" id="btnFilterCashier">🔍 Filter</button>
+          </div>
+          <div class="filter-group" style="margin-left:auto;">
+            <button class="btn btn-secondary" id="btnExportCashierPDF">📄 Export PDF</button>
+          </div>
+        </div>
+
+        <!-- Cashier Stats Cards -->
+        <div id="cashierCardsContainer" class="cashier-cards-grid">
+          <div class="empty-state">
+            <div class="empty-icon">👤</div>
+            <p>Klik Filter untuk memuat data kasir</p>
+          </div>
+        </div>
+
+        <!-- Bar Chart -->
+        <div class="chart-card" style="margin-top:20px;">
+          <div class="chart-card-header">
+            <h3>📊 Performa Kasir</h3>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="cashierBarChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Ranking Table -->
+        <div class="table-container" style="margin-top:20px;">
+          <div class="table-toolbar">
+            <span style="font-weight:600;color:#2c3e50;">🏆 Ranking Kasir</span>
+          </div>
+          <table class="data-table" id="cashierRankTable">
+            <thead>
+              <tr>
+                <th style="text-align:center;">Rank</th>
+                <th>Nama Kasir</th>
+                <th style="text-align:center;">Transaksi</th>
+                <th>Total Penjualan</th>
+                <th>Rata-rata</th>
+                <th style="text-align:center;">Badge</th>
+              </tr>
+            </thead>
+            <tbody id="cashierRankBody">
+              <tr><td colspan="6" class="text-center text-muted">Klik Filter untuk memuat data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+    <div class="loading-spinner-box">
+      <div class="spinner"></div>
+      <p id="loadingText">Memuat data...</p>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/notification.js"></script>
+  <script src="../js/reports.js"></script>
+</body>
+</html>
