@@ -1617,17 +1617,19 @@ ipcMain.handle('purchases:create', async (event, purchaseData) => {
     // Insert purchase
     dbModule.run(
       `INSERT INTO purchases (
-        purchase_code, supplier_name, purchase_date, total_amount,
-        payment_status, paid_amount, remaining_amount, user_id, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        purchase_code, supplier_name, supplier_id, purchase_date,
+        total_amount, payment_status, paid_amount, remaining_amount,
+        user_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         purchaseData.purchase_code,
         purchaseData.supplier_name || '',
+        purchaseData.supplier_id || null,
         purchaseData.purchase_date,
         purchaseData.total_amount,
-        purchaseData.payment_status,
-        purchaseData.paid_amount,
-        remaining,
+        purchaseData.payment_status || 'unpaid',
+        purchaseData.paid_amount || 0,
+        purchaseData.total_amount - (purchaseData.paid_amount || 0),
         currentUser.id,
         purchaseData.notes || ''
       ]
@@ -1716,11 +1718,12 @@ ipcMain.handle('purchases:update', async (event, id, purchaseData) => {
 
     dbModule.run(
       `UPDATE purchases 
-       SET supplier_name = ?, purchase_date = ?, total_amount = ?,
+       SET supplier_name = ?, supplier_id = ?, purchase_date = ?, total_amount = ?,
            payment_status = ?, paid_amount = ?, remaining_amount = ?, notes = ?
        WHERE id = ?`,
       [
         purchaseData.supplier_name || '',
+        purchaseData.supplier_id || null,
         purchaseData.purchase_date,
         purchaseData.total_amount,
         purchaseData.payment_status,
@@ -1839,6 +1842,217 @@ ipcMain.handle('purchases:pay', async (event, id, amount) => {
   } catch (error) {
     console.error('Pay purchase error:', error);
     return { success: false, message: 'Gagal memproses pembayaran' };
+  }
+});
+
+// ============================================
+// SUPPLIERS IPC HANDLERS
+// ============================================
+
+// Generate supplier code
+function generateSupplierCode() {
+  const last = dbModule.get(
+    "SELECT supplier_code FROM suppliers ORDER BY id DESC LIMIT 1"
+  );
+  if (!last) return 'SUP-0001';
+  const num = parseInt(last.supplier_code.replace('SUP-', ''), 10) + 1;
+  return 'SUP-' + String(num).padStart(4, '0');
+}
+
+// Get all suppliers
+ipcMain.handle('suppliers:getAll', async (event, filters = {}) => {
+  try {
+    let sql = 'SELECT * FROM suppliers WHERE 1=1';
+    const params = [];
+
+    if (filters.search) {
+      sql += ' AND (name LIKE ? OR supplier_code LIKE ? OR phone LIKE ? OR contact_person LIKE ?)';
+      const kw = `%${filters.search}%`;
+      params.push(kw, kw, kw, kw);
+    }
+
+    if (filters.status !== undefined && filters.status !== '') {
+      sql += ' AND is_active = ?';
+      params.push(filters.status);
+    }
+
+    sql += ' ORDER BY name ASC';
+
+    const suppliers = dbModule.all(sql, params);
+    return { success: true, suppliers };
+  } catch (error) {
+    console.error('suppliers:getAll error:', error);
+    return { success: false, message: 'Gagal memuat data supplier' };
+  }
+});
+
+// Get active suppliers for dropdown
+ipcMain.handle('suppliers:getActiveList', async () => {
+  try {
+    const suppliers = dbModule.all(
+      'SELECT id, supplier_code, name FROM suppliers WHERE is_active = 1 ORDER BY name ASC'
+    );
+    return { success: true, suppliers };
+  } catch (error) {
+    console.error('suppliers:getActiveList error:', error);
+    return { success: false, message: 'Gagal memuat daftar supplier' };
+  }
+});
+
+// Get supplier by ID
+ipcMain.handle('suppliers:getById', async (event, id) => {
+  try {
+    const supplier = dbModule.get('SELECT * FROM suppliers WHERE id = ?', [id]);
+    if (!supplier) return { success: false, message: 'Supplier tidak ditemukan' };
+    return { success: true, supplier };
+  } catch (error) {
+    console.error('suppliers:getById error:', error);
+    return { success: false, message: 'Gagal memuat data supplier' };
+  }
+});
+
+// Get supplier detail: info + purchase history + total debt
+ipcMain.handle('suppliers:getDetail', async (event, id) => {
+  try {
+    const supplier = dbModule.get('SELECT * FROM suppliers WHERE id = ?', [id]);
+    if (!supplier) return { success: false, message: 'Supplier tidak ditemukan' };
+
+    const purchases = dbModule.all(
+      `SELECT p.*, u.full_name as user_name
+       FROM purchases p
+       LEFT JOIN users u ON p.user_id = u.id
+       WHERE p.supplier_id = ?
+       ORDER BY p.purchase_date DESC, p.created_at DESC`,
+      [id]
+    );
+
+    const debtRow = dbModule.get(
+      `SELECT COALESCE(SUM(remaining_amount), 0) as total_debt
+       FROM purchases
+       WHERE supplier_id = ? AND payment_status != 'paid'`,
+      [id]
+    );
+
+    const statsRow = dbModule.get(
+      `SELECT 
+         COUNT(*) as total_purchases,
+         COALESCE(SUM(total_amount), 0) as total_amount
+       FROM purchases WHERE supplier_id = ?`,
+      [id]
+    );
+
+    return {
+      success: true,
+      supplier,
+      purchases,
+      total_debt: debtRow ? debtRow.total_debt : 0,
+      stats: statsRow
+    };
+  } catch (error) {
+    console.error('suppliers:getDetail error:', error);
+    return { success: false, message: 'Gagal memuat detail supplier' };
+  }
+});
+
+// Create supplier
+ipcMain.handle('suppliers:create', async (event, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM suppliers WHERE name = ?', [data.name]);
+    if (existing) return { success: false, message: 'Supplier dengan nama ini sudah ada' };
+
+    const supplierCode = generateSupplierCode();
+
+    dbModule.run(
+      `INSERT INTO suppliers (supplier_code, name, address, phone, email, contact_person, notes, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      [
+        supplierCode,
+        data.name,
+        data.address || '',
+        data.phone || '',
+        data.email || '',
+        data.contact_person || '',
+        data.notes || ''
+      ]
+    );
+
+    console.log('Supplier created:', supplierCode);
+    return { success: true, supplier_code: supplierCode };
+  } catch (error) {
+    console.error('suppliers:create error:', error);
+    return { success: false, message: 'Gagal menyimpan supplier: ' + error.message };
+  }
+});
+
+// Update supplier
+ipcMain.handle('suppliers:update', async (event, id, data) => {
+  try {
+    const existing = dbModule.get(
+      'SELECT id FROM suppliers WHERE name = ? AND id != ?',
+      [data.name, id]
+    );
+    if (existing) return { success: false, message: 'Supplier dengan nama ini sudah ada' };
+
+    dbModule.run(
+      `UPDATE suppliers
+       SET name = ?, address = ?, phone = ?, email = ?, contact_person = ?, notes = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        data.name,
+        data.address || '',
+        data.phone || '',
+        data.email || '',
+        data.contact_person || '',
+        data.notes || '',
+        id
+      ]
+    );
+
+    console.log('Supplier updated:', id);
+    return { success: true };
+  } catch (error) {
+    console.error('suppliers:update error:', error);
+    return { success: false, message: 'Gagal mengupdate supplier: ' + error.message };
+  }
+});
+
+// Delete supplier
+ipcMain.handle('suppliers:delete', async (event, id) => {
+  try {
+    const inUse = dbModule.get(
+      'SELECT id FROM purchases WHERE supplier_id = ? LIMIT 1',
+      [id]
+    );
+    if (inUse) {
+      return { success: false, message: 'Supplier tidak dapat dihapus karena sudah digunakan di data pembelian' };
+    }
+
+    dbModule.run('DELETE FROM suppliers WHERE id = ?', [id]);
+    console.log('Supplier deleted:', id);
+    return { success: true };
+  } catch (error) {
+    console.error('suppliers:delete error:', error);
+    return { success: false, message: 'Gagal menghapus supplier' };
+  }
+});
+
+// Toggle supplier status
+ipcMain.handle('suppliers:toggleStatus', async (event, id) => {
+  try {
+    const supplier = dbModule.get('SELECT is_active FROM suppliers WHERE id = ?', [id]);
+    if (!supplier) return { success: false, message: 'Supplier tidak ditemukan' };
+
+    const newStatus = supplier.is_active === 1 ? 0 : 1;
+    dbModule.run(
+      'UPDATE suppliers SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newStatus, id]
+    );
+
+    return { success: true, is_active: newStatus };
+  } catch (error) {
+    console.error('suppliers:toggleStatus error:', error);
+    return { success: false, message: 'Gagal mengubah status supplier' };
   }
 });
 

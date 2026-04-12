@@ -54,6 +54,13 @@ function renderMenu(activePage) {
       roles: ['owner', 'admin']
     },
     {
+      id: 'supplier',
+      icon: '🏭',
+      text: 'Supplier',
+      href: 'suppliers.html',
+      roles: ['owner', 'admin']
+    },
+    {
       id: 'laporan',
       icon: '📈',
       text: 'Laporan',

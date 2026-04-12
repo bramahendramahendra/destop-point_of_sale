@@ -66,6 +66,16 @@ contextBridge.exposeInMainWorld('api', {
     delete: (id) => ipcRenderer.invoke('purchases:delete', id),
     pay: (id, amount) => ipcRenderer.invoke('purchases:pay', id, amount)
   },
+  suppliers: {
+    getAll: (filters) => ipcRenderer.invoke('suppliers:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('suppliers:getById', id),
+    create: (data) => ipcRenderer.invoke('suppliers:create', data),
+    update: (id, data) => ipcRenderer.invoke('suppliers:update', id, data),
+    delete: (id) => ipcRenderer.invoke('suppliers:delete', id),
+    toggleStatus: (id) => ipcRenderer.invoke('suppliers:toggleStatus', id),
+    getDetail: (id) => ipcRenderer.invoke('suppliers:getDetail', id),
+    getActiveList: () => ipcRenderer.invoke('suppliers:getActiveList')
+  },
   finance: {
     getDashboard: (filters) => ipcRenderer.invoke('finance:getDashboard', filters),
     getTopProducts: (filters) => ipcRenderer.invoke('finance:getTopProducts', filters)

@@ -489,8 +489,19 @@
             </div>
 
             <div class="form-group">
-              <label for="supplierName">Supplier</label>
-              <input type="text" id="supplierName" placeholder="Nama supplier (opsional)">
+              <label for="supplierSelect">Supplier</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <select id="supplierSelect" style="flex:1;">
+                  <option value="">-- Pilih Supplier (opsional) --</option>
+                </select>
+                <a href="suppliers.html" class="btn btn-secondary btn-sm" title="Kelola Supplier">
+                  ⚙️
+                </a>
+              </div>
+              <small class="form-text">
+                Supplier tidak ada di daftar?
+                <a href="suppliers.html" style="color:#3498db;">Tambah supplier baru</a>
+              </small>
             </div>
           </div>
 
@@ -686,6 +697,7 @@
 
   <script src="../js/utils.js"></script>
   <script src="../js/menu.js"></script>
+  <script src="../js/notification.js"></script>
   <script src="../js/finance.js"></script>
 </body>
 </html>

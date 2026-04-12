@@ -5,6 +5,7 @@ let allPurchases = [];
 let allCashDrawers = [];
 let allProducts = [];
 let purchaseItems = [];
+let suppliersCache = [];
 let editingExpenseId = null;
 let editingPurchaseId = null;
 let currentCashDrawer = null;
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
 
   // Load initial data
+  await loadSuppliersDropdown();
   await loadDashboard();
   await loadProducts();
   await checkCurrentCashDrawer();
@@ -1025,6 +1027,39 @@ async function loadPurchases() {
   }
 }
 
+// ============================================
+// SUPPLIER DROPDOWN
+// ============================================
+
+async function loadSuppliersDropdown() {
+  try {
+    const result = await window.api.suppliers.getActiveList();
+    if (result.success) {
+      suppliersCache = result.suppliers;
+    }
+  } catch (error) {
+    console.error('loadSuppliersDropdown error:', error);
+  }
+}
+
+function populateSupplierDropdown(selectedId = null) {
+  const select = document.getElementById('supplierSelect');
+  if (!select) return;
+
+  // Simpan nilai yang sedang dipilih sebelum repopulate
+  const currentVal = selectedId !== null ? selectedId : select.value;
+
+  select.innerHTML = '<option value="">-- Pilih Supplier (opsional) --</option>';
+
+  suppliersCache.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `[${s.supplier_code}] ${s.name}`;
+    if (String(s.id) === String(currentVal)) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
 function renderPurchasesTable(purchases) {
   const tbody = document.getElementById('purchasesTableBody');
 
@@ -1041,7 +1076,14 @@ function renderPurchasesTable(purchases) {
     <tr>
       <td><code>${escapeHtml(purchase.purchase_code)}</code></td>
       <td>${formatDateOnly(purchase.purchase_date)}</td>
-      <td>${escapeHtml(purchase.supplier_name || '-')}</td>
+      <td>
+        ${purchase.supplier_id
+          ? `<a href="suppliers.html" style="color:#3498db;text-decoration:none;font-weight:600;"
+               onclick="sessionStorage.setItem('highlight_supplier_id','${purchase.supplier_id}');return true;">
+               🏭 ${escapeHtml(purchase.supplier_name || '-')}
+             </a>`
+          : escapeHtml(purchase.supplier_name || '-')}
+      </td>
       <td><strong>${formatCurrency(purchase.total_amount)}</strong></td>
       <td>
         <span class="badge ${getPaymentStatusClass(purchase.payment_status)}">
@@ -1091,6 +1133,7 @@ function openAddPurchaseModal() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('purchaseDate').value = today;
   document.getElementById('purchaseCode').value = generatePurchaseCode();
+  populateSupplierDropdown(null);
   document.getElementById('paymentStatus').value = 'unpaid';
   document.getElementById('paidAmount').value = 0;
   document.getElementById('paidAmount').disabled = true;
@@ -1273,9 +1316,16 @@ async function handlePurchaseFormSubmit(e) {
     return;
   }
 
+  const supplierSelect = document.getElementById('supplierSelect');
+  const supplierIdVal = supplierSelect.value ? parseInt(supplierSelect.value) : null;
+  const supplierNameVal = supplierIdVal
+    ? supplierSelect.options[supplierSelect.selectedIndex].textContent.replace(/^\[.*?\]\s*/, '').trim()
+    : '';
+
   const formData = {
     purchase_code: document.getElementById('purchaseCode').value,
-    supplier_name: document.getElementById('supplierName').value.trim(),
+    supplier_id: supplierIdVal,
+    supplier_name: supplierNameVal,
     purchase_date: document.getElementById('purchaseDate').value,
     total_amount: total,
     payment_status: document.getElementById('paymentStatus').value,
@@ -1447,7 +1497,11 @@ function displayPurchaseDetail(purchase) {
         </div>
         <div class="detail-item">
           <span class="detail-label">Supplier:</span>
-          <strong>${escapeHtml(purchase.supplier_name || '-')}</strong>
+          <span>
+            ${purchase.supplier_name
+              ? `<strong>${escapeHtml(purchase.supplier_name)}</strong>`
+              : '-'}
+          </span>
         </div>
         <div class="detail-item">
           <span class="detail-label">User:</span>

@@ -173,6 +173,25 @@ async function initDatabase() {
   run(createExpensesTable);
   console.log('Expenses table created successfully');
 
+  // Create suppliers table
+  const createSuppliersTable = `
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      supplier_code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      email TEXT,
+      contact_person TEXT,
+      notes TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  run(createSuppliersTable);
+  console.log('Suppliers table created successfully');
+
   // Create purchases table
   const createPurchasesTable = `
     CREATE TABLE IF NOT EXISTS purchases (
@@ -227,6 +246,13 @@ async function initDatabase() {
   run(createSettingsTable);
   console.log('Settings table created successfully');
 
+  try {
+    run('ALTER TABLE purchases ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)');
+    console.log('Migration: supplier_id column added to purchases');
+  } catch (e) {
+    // Column already exists, skip
+  }
+
   // Check if admin user exists
   const adminExists = get('SELECT id FROM users WHERE username = ?', ['admin']);
 
@@ -275,49 +301,50 @@ async function initDatabase() {
   }
 
   // Check if products exist
-  const productsExist = get('SELECT id FROM products LIMIT 1');
+  // const productsExist = get('SELECT id FROM products LIMIT 1');
 
-  if (!productsExist) {
-    console.log('Creating sample products...');
+  // if (!productsExist) {
+  //   console.log('Creating sample products...');
 
-    const products = [
-      // Makanan (category_id: 1)
-      ['PROD-1001', 'Nasi Goreng Instan', 1, 8000, 12000, 50, 10, 'pcs'],
-      ['PROD-1002', 'Mie Instan Goreng', 1, 2500, 3500, 100, 20, 'pcs'],
-      ['PROD-1003', 'Roti Tawar', 1, 10000, 15000, 30, 5, 'pcs'],
+  //   const products = [
+  //     // Makanan (category_id: 1)
+  //     ['PROD-1001', 'Nasi Goreng Instan', 1, 8000, 12000, 50, 10, 'pcs'],
+  //     ['PROD-1002', 'Mie Instan Goreng', 1, 2500, 3500, 100, 20, 'pcs'],
+  //     ['PROD-1003', 'Roti Tawar', 1, 10000, 15000, 30, 5, 'pcs'],
       
-      // Minuman (category_id: 2)
-      ['PROD-2001', 'Air Mineral 600ml', 2, 2000, 3000, 200, 50, 'botol'],
-      ['PROD-2002', 'Teh Botol', 2, 3500, 5000, 150, 30, 'botol'],
-      ['PROD-2003', 'Kopi Sachet', 2, 1500, 2500, 100, 20, 'sachet'],
+  //     // Minuman (category_id: 2)
+  //     ['PROD-2001', 'Air Mineral 600ml', 2, 2000, 3000, 200, 50, 'botol'],
+  //     ['PROD-2002', 'Teh Botol', 2, 3500, 5000, 150, 30, 'botol'],
+  //     ['PROD-2003', 'Kopi Sachet', 2, 1500, 2500, 100, 20, 'sachet'],
       
-      // Snack (category_id: 3)
-      ['PROD-3001', 'Keripik Kentang', 3, 8000, 12000, 80, 15, 'pcs'],
-      ['PROD-3002', 'Biskuit Marie', 3, 5000, 7500, 60, 10, 'pcs'],
-      ['PROD-3003', 'Coklat Batang', 3, 15000, 20000, 40, 10, 'pcs'],
+  //     // Snack (category_id: 3)
+  //     ['PROD-3001', 'Keripik Kentang', 3, 8000, 12000, 80, 15, 'pcs'],
+  //     ['PROD-3002', 'Biskuit Marie', 3, 5000, 7500, 60, 10, 'pcs'],
+  //     ['PROD-3003', 'Coklat Batang', 3, 15000, 20000, 40, 10, 'pcs'],
       
-      // Kebutuhan Rumah (category_id: 4)
-      ['PROD-4001', 'Sabun Mandi', 4, 3000, 5000, 70, 15, 'pcs'],
-      ['PROD-4002', 'Pasta Gigi', 4, 8000, 12000, 50, 10, 'pcs'],
-      ['PROD-4003', 'Shampo Sachet', 4, 1000, 2000, 150, 30, 'sachet'],
+  //     // Kebutuhan Rumah (category_id: 4)
+  //     ['PROD-4001', 'Sabun Mandi', 4, 3000, 5000, 70, 15, 'pcs'],
+  //     ['PROD-4002', 'Pasta Gigi', 4, 8000, 12000, 50, 10, 'pcs'],
+  //     ['PROD-4003', 'Shampo Sachet', 4, 1000, 2000, 150, 30, 'sachet'],
       
-      // Lainnya (category_id: 5)
-      ['PROD-5001', 'Pulpen', 5, 2000, 3500, 100, 20, 'pcs'],
-      ['PROD-5002', 'Buku Tulis', 5, 5000, 8000, 60, 15, 'pcs']
-    ];
+  //     // Lainnya (category_id: 5)
+  //     ['PROD-5001', 'Pulpen', 5, 2000, 3500, 100, 20, 'pcs'],
+  //     ['PROD-5002', 'Buku Tulis', 5, 5000, 8000, 60, 15, 'pcs']
+  //   ];
 
-    products.forEach(([barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit]) => {
-      run(
-        `INSERT INTO products (barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit]
-      );
-    });
+  //   products.forEach(([barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit]) => {
+  //     run(
+  //       `INSERT INTO products (barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit, is_active) 
+  //        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+  //       [barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit]
+  //     );
+  //   });
 
-    console.log('Sample products created successfully');
-  }
+  //   console.log('Sample products created successfully');
+  // }
   
  // Insert default settings if not exist
+  
   const settingsExist = get("SELECT id FROM settings WHERE key = 'store_name'");
   if (!settingsExist) {
     const defaultSettings = [
