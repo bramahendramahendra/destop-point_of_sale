@@ -143,6 +143,23 @@ body {
   color: white;
 }
 
+/* Unit Select Button (Cart) */
+.btn-unit-select {
+  background: #f0f4ff;
+  border: 1px solid #c5d0e8;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #3a5ac8;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.btn-unit-select:hover {
+  background: #dce6ff;
+}
+
 /* Remove Button (Cart) */
 .btn-remove {
   background: none;

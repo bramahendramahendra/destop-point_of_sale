@@ -27,6 +27,7 @@
           <button class="tab-button" data-tab="cash-drawer">Kas Harian</button>
           <button class="tab-button" data-tab="expenses">Pengeluaran</button>
           <button class="tab-button" data-tab="purchases">Pembelian</button>
+          <button class="tab-button" data-tab="supplier-returns">Retur Supplier</button>
         </div>
       </div>
 
@@ -273,7 +274,222 @@
           </table>
         </div>
       </div>
+      <!-- Tab Content: Retur Supplier -->
+      <div id="supplier-returns-tab" class="tab-content">
+        <div class="tab-header">
+          <button class="btn btn-primary" id="btnAddReturn">
+            <span>➕</span> Buat Retur
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-container">
+          <div class="filter-group">
+            <select id="returnFilterSupplier" class="filter-select">
+              <option value="">Semua Supplier</option>
+            </select>
+            <select id="returnFilterStatus" class="filter-select">
+              <option value="">Semua Status</option>
+              <option value="diproses">Diproses</option>
+              <option value="selesai">Selesai</option>
+            </select>
+            <input type="date" id="returnFilterStartDate" class="filter-input">
+            <input type="date" id="returnFilterEndDate" class="filter-input">
+            <button class="btn btn-secondary" id="btnApplyReturnFilter">Filter</button>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-card">
+          <div class="summary-item">
+            <span>Total Retur:</span>
+            <strong id="returnsTotal">Rp 0</strong>
+          </div>
+          <div class="summary-item">
+            <span>Jumlah Retur:</span>
+            <strong id="returnsCount">0</strong>
+          </div>
+        </div>
+
+        <!-- Returns Table -->
+        <div class="table-container">
+          <table class="data-table" id="returnsTable">
+            <thead>
+              <tr>
+                <th>Kode Retur</th>
+                <th>Tanggal</th>
+                <th>Kode PO</th>
+                <th>Supplier</th>
+                <th>Total Retur</th>
+                <th>Alasan</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="returnsTableBody">
+              <tr>
+                <td colspan="8" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
+  </div>
+
+  <!-- Modal Buat Retur -->
+  <div id="returnModal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2>Buat Retur ke Supplier</h2>
+        <button class="modal-close" id="closeReturnModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="returnForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="returnPurchaseId">Pembelian (PO) <span class="required">*</span></label>
+              <select id="returnPurchaseId" required>
+                <option value="">-- Pilih PO --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="returnDate">Tanggal Retur <span class="required">*</span></label>
+              <input type="date" id="returnDate" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="returnReason">Alasan Retur <span class="required">*</span></label>
+              <select id="returnReason" required>
+                <option value="">-- Pilih Alasan --</option>
+                <option value="rusak">Rusak</option>
+                <option value="tidak sesuai">Tidak Sesuai</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="returnNotes">Catatan</label>
+              <input type="text" id="returnNotes" placeholder="Catatan tambahan (opsional)">
+            </div>
+          </div>
+
+          <!-- Info Supplier dari PO -->
+          <div id="returnSupplierInfo" class="info-box hidden">
+            <span>Supplier: <strong id="returnSupplierName">-</strong></span>
+            <span style="margin-left:16px">Status Bayar: <strong id="returnPurchaseStatus">-</strong></span>
+            <span style="margin-left:16px">Sisa Hutang: <strong id="returnRemainingDebt">-</strong></span>
+          </div>
+
+          <!-- Pilih Item -->
+          <div id="returnItemsSection" class="hidden">
+            <div class="section-header" style="margin-top:16px">
+              <h4>Item yang Diretur</h4>
+            </div>
+            <div class="table-container">
+              <table class="data-table" id="returnItemsSelectTable">
+                <thead>
+                  <tr>
+                    <th>Pilih</th>
+                    <th>Produk</th>
+                    <th>Qty Beli</th>
+                    <th>Satuan</th>
+                    <th>Harga Beli</th>
+                    <th>Qty Retur</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody id="returnItemsSelectBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="summary-card" style="margin-top:12px">
+            <span>Total Nilai Retur:</span>
+            <strong id="returnTotalAmount">Rp 0</strong>
+          </div>
+
+          <div id="returnFormError" class="error-message hidden"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelReturn">Batal</button>
+            <button type="submit" class="btn btn-primary btn-large">💾 Simpan Retur</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detail Retur -->
+  <div id="detailReturnModal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2>Detail Retur Supplier</h2>
+        <button class="modal-close" id="closeDetailReturnModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Kode Retur</span>
+            <span class="detail-value" id="detailReturnCode">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Kode PO</span>
+            <span class="detail-value" id="detailReturnPurchaseCode">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Tanggal Retur</span>
+            <span class="detail-value" id="detailReturnDate">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Supplier</span>
+            <span class="detail-value" id="detailReturnSupplier">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Alasan</span>
+            <span class="detail-value" id="detailReturnReason">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Status</span>
+            <span class="detail-value" id="detailReturnStatus">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Total Retur</span>
+            <span class="detail-value" id="detailReturnTotal">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Catatan</span>
+            <span class="detail-value" id="detailReturnNotes">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Dibuat Oleh</span>
+            <span class="detail-value" id="detailReturnUser">-</span>
+          </div>
+        </div>
+
+        <h4 style="margin-top:16px;margin-bottom:8px">Item Retur</h4>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th>Qty</th>
+                <th>Satuan</th>
+                <th>Harga Beli</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody id="detailReturnItemsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btnCloseDetailReturn">Tutup</button>
+        <button type="button" class="btn btn-success" id="btnMarkReturnDone">✔ Tandai Selesai</button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Open Cash Drawer -->

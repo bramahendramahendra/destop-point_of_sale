@@ -2,8 +2,13 @@
 let currentUser = null;
 let allProducts = [];
 let allCategories = [];
+let allUnits = [];
 let editingProductId = null;
 let editingCategoryId = null;
+let editingUnitId = null;
+// productUnits buffer: array of {unit_id, unit_name, abbreviation, conversion_qty, selling_price, is_default}
+let productUnitRows = [];
+let puEditIndex = null;
 
 // Check authentication on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -20,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load data
   await loadCategories();
   await loadProducts();
+  await loadUnits();
 
   // Setup event listeners
   setupEventListeners();
@@ -61,17 +67,33 @@ function setupEventListeners() {
   document.getElementById('purchasePrice').addEventListener('input', calculateAndDisplayMargin);
   document.getElementById('sellingPrice').addEventListener('input', calculateAndDisplayMargin);
 
+  // Unit master buttons
+  document.getElementById('btnAddUnit').addEventListener('click', openAddUnitModal);
+  document.getElementById('closeUnitModal').addEventListener('click', closeUnitModal);
+  document.getElementById('btnCancelUnit').addEventListener('click', closeUnitModal);
+  document.getElementById('unitForm').addEventListener('submit', handleUnitFormSubmit);
+
+  // Product unit buttons
+  document.getElementById('btnAddProductUnit').addEventListener('click', openAddProductUnitModal);
+  document.getElementById('closeProductUnitModal').addEventListener('click', closeProductUnitModal);
+  document.getElementById('btnCancelProductUnit').addEventListener('click', closeProductUnitModal);
+  document.getElementById('productUnitForm').addEventListener('submit', handleProductUnitFormSubmit);
+
+  // Auto-calculate hint on product unit price input
+  document.getElementById('puConversionQty').addEventListener('input', updatePuPriceHint);
+  document.getElementById('puSellingPrice').addEventListener('input', updatePuPriceHint);
+
   // Close modal when clicking outside
   window.addEventListener('click', (e) => {
     const productModal = document.getElementById('productModal');
     const categoryModal = document.getElementById('categoryModal');
-    
-    if (e.target === productModal) {
-      closeProductModal();
-    }
-    if (e.target === categoryModal) {
-      closeCategoryModal();
-    }
+    const unitModal = document.getElementById('unitModal');
+    const productUnitModal = document.getElementById('productUnitModal');
+
+    if (e.target === productModal) closeProductModal();
+    if (e.target === categoryModal) closeCategoryModal();
+    if (e.target === unitModal) closeUnitModal();
+    if (e.target === productUnitModal) closeProductUnitModal();
   });
 }
 
@@ -442,6 +464,7 @@ function filterProducts() {
 
 function openAddProductModal() {
   editingProductId = null;
+  productUnitRows = [];
   document.getElementById('productModalTitle').textContent = 'Tambah Produk';
   document.getElementById('productForm').reset();
   document.getElementById('stock').value = '0';
@@ -449,8 +472,9 @@ function openAddProductModal() {
   document.getElementById('marginDisplay').value = '0%';
   document.getElementById('productFormError').style.display = 'none';
   document.getElementById('btnSubmitProductText').textContent = 'Simpan';
+  document.getElementById('productUnitsSection').classList.add('hidden');
   document.getElementById('productModal').style.display = 'flex';
-  
+
   setTimeout(() => {
     document.getElementById('barcode').focus();
   }, 100);
@@ -459,11 +483,11 @@ function openAddProductModal() {
 async function editProduct(productId) {
   try {
     const result = await window.api.products.getById(productId);
-    
+
     if (result.success) {
       const product = result.product;
       editingProductId = productId;
-      
+
       document.getElementById('productModalTitle').textContent = 'Edit Produk';
       document.getElementById('productId').value = product.id;
       document.getElementById('barcode').value = product.barcode;
@@ -474,13 +498,16 @@ async function editProduct(productId) {
       document.getElementById('stock').value = product.stock;
       document.getElementById('minStock').value = product.min_stock;
       document.getElementById('unit').value = product.unit;
-      
+
       calculateAndDisplayMargin();
-      
+
+      // Load product units
+      await loadProductUnitsForEdit(productId, product.unit, product.selling_price);
+
       document.getElementById('productFormError').style.display = 'none';
       document.getElementById('btnSubmitProductText').textContent = 'Update';
       document.getElementById('productModal').style.display = 'flex';
-      
+
       setTimeout(() => {
         document.getElementById('productName').focus();
       }, 100);
@@ -496,7 +523,9 @@ async function editProduct(productId) {
 function closeProductModal() {
   document.getElementById('productModal').style.display = 'none';
   document.getElementById('productForm').reset();
+  document.getElementById('productUnitsSection').classList.add('hidden');
   editingProductId = null;
+  productUnitRows = [];
 }
 
 function handleGenerateBarcode() {
@@ -571,14 +600,19 @@ async function saveProduct(formData) {
     }
 
     if (result.success) {
+      // Save product units if any
+      const savedProductId = editingProductId || result.productId;
+      if (savedProductId && productUnitRows.length > 0) {
+        await window.api.productUnits.save(savedProductId, productUnitRows);
+      }
+
       closeProductModal();
       await loadProducts();
       showToast(
         editingProductId ? 'Produk berhasil diupdate' : 'Produk berhasil ditambahkan',
         'success'
       );
-      
-      // IMPORTANT: Reset button state after success
+
       btnSubmit.disabled = false;
       btnSubmitText.textContent = originalText;
     } else {
@@ -643,4 +677,415 @@ function showProductFormError(message) {
   const errorDiv = document.getElementById('productFormError');
   errorDiv.textContent = message;
   errorDiv.style.display = 'block';
+}
+
+// ============================================
+// UNITS MASTER MANAGEMENT
+// ============================================
+
+async function loadUnits() {
+  try {
+    const result = await window.api.units.getAll();
+    if (result.success) {
+      allUnits = result.units;
+      renderUnitsTable(allUnits);
+    } else {
+      showToast('Gagal memuat data satuan', 'error');
+    }
+  } catch (error) {
+    console.error('Load units error:', error);
+    showToast('Terjadi kesalahan saat memuat satuan', 'error');
+  }
+}
+
+function renderUnitsTable(units) {
+  const tbody = document.getElementById('unitsTableBody');
+
+  if (units.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center">Tidak ada data satuan</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = units.map(unit => `
+    <tr>
+      <td>${escapeHtml(unit.name)}</td>
+      <td><code>${escapeHtml(unit.abbreviation)}</code></td>
+      <td>
+        <span class="badge ${unit.is_active ? 'badge-success' : 'badge-danger'}">
+          ${unit.is_active ? 'Aktif' : 'Nonaktif'}
+        </span>
+      </td>
+      <td class="action-buttons">
+        <button class="btn-icon" onclick="editUnit(${unit.id})" title="Edit">✏️</button>
+        <button class="btn-icon" onclick="toggleUnitStatus(${unit.id}, ${unit.is_active})"
+          title="${unit.is_active ? 'Nonaktifkan' : 'Aktifkan'}">
+          ${unit.is_active ? '🔓' : '🔒'}
+        </button>
+        <button class="btn-icon" onclick="confirmDeleteUnit(${unit.id}, '${escapeHtml(unit.name)}')" title="Hapus">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddUnitModal() {
+  editingUnitId = null;
+  document.getElementById('unitModalTitle').textContent = 'Tambah Satuan';
+  document.getElementById('unitForm').reset();
+  document.getElementById('unitFormError').style.display = 'none';
+  document.getElementById('btnSubmitUnitText').textContent = 'Simpan';
+  document.getElementById('unitModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('unitName').focus(), 100);
+}
+
+async function editUnit(unitId) {
+  try {
+    const result = await window.api.units.getById(unitId);
+    if (result.success) {
+      const unit = result.unit;
+      editingUnitId = unitId;
+      document.getElementById('unitModalTitle').textContent = 'Edit Satuan';
+      document.getElementById('unitId').value = unit.id;
+      document.getElementById('unitName').value = unit.name;
+      document.getElementById('unitAbbreviation').value = unit.abbreviation;
+      document.getElementById('unitFormError').style.display = 'none';
+      document.getElementById('btnSubmitUnitText').textContent = 'Update';
+      document.getElementById('unitModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('unitName').focus(), 100);
+    } else {
+      showToast('Gagal memuat data satuan', 'error');
+    }
+  } catch (error) {
+    console.error('Edit unit error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function closeUnitModal() {
+  document.getElementById('unitModal').style.display = 'none';
+  document.getElementById('unitForm').reset();
+  editingUnitId = null;
+}
+
+async function handleUnitFormSubmit(e) {
+  e.preventDefault();
+
+  const formData = {
+    name: document.getElementById('unitName').value.trim(),
+    abbreviation: document.getElementById('unitAbbreviation').value.trim()
+  };
+
+  if (!formData.name || !formData.abbreviation) {
+    showUnitFormError('Nama dan singkatan satuan harus diisi');
+    return;
+  }
+
+  showConfirm(
+    'Konfirmasi Simpan',
+    `Yakin ingin ${editingUnitId ? 'mengupdate' : 'menambahkan'} satuan "${formData.name}"?`,
+    async () => {
+      const btnSubmit = document.querySelector('#unitForm button[type="submit"]');
+      const btnText = document.getElementById('btnSubmitUnitText');
+      btnSubmit.disabled = true;
+      btnText.textContent = 'Menyimpan...';
+
+      try {
+        const result = editingUnitId
+          ? await window.api.units.update(editingUnitId, formData)
+          : await window.api.units.create(formData);
+
+        if (result.success) {
+          closeUnitModal();
+          await loadUnits();
+          showToast(editingUnitId ? 'Satuan berhasil diupdate' : 'Satuan berhasil ditambahkan', 'success');
+        } else {
+          showUnitFormError(result.message || 'Gagal menyimpan satuan');
+        }
+      } catch (error) {
+        showUnitFormError('Terjadi kesalahan saat menyimpan');
+      } finally {
+        btnSubmit.disabled = false;
+        btnText.textContent = editingUnitId ? 'Update' : 'Simpan';
+      }
+    }
+  );
+}
+
+async function toggleUnitStatus(unitId, currentStatus) {
+  try {
+    const result = await window.api.units.toggleStatus(unitId);
+    if (result.success) {
+      await loadUnits();
+      showToast(`Satuan berhasil ${currentStatus ? 'dinonaktifkan' : 'diaktifkan'}`, 'success');
+    } else {
+      showToast('Gagal mengubah status satuan', 'error');
+    }
+  } catch (error) {
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function confirmDeleteUnit(unitId, unitName) {
+  showConfirm('Konfirmasi Hapus', `Yakin ingin menghapus satuan "${unitName}"?`, async () => {
+    try {
+      const result = await window.api.units.delete(unitId);
+      if (result.success) {
+        await loadUnits();
+        showToast('Satuan berhasil dihapus', 'success');
+      } else {
+        showToast(result.message || 'Gagal menghapus satuan', 'error');
+      }
+    } catch (error) {
+      showToast('Terjadi kesalahan', 'error');
+    }
+  });
+}
+
+function showUnitFormError(message) {
+  const el = document.getElementById('unitFormError');
+  el.textContent = message;
+  el.style.display = 'block';
+}
+
+// ============================================
+// PRODUCT UNITS (SATUAN JUAL) MANAGEMENT
+// ============================================
+
+async function loadProductUnitsForEdit(productId, baseUnit, basePrice) {
+  try {
+    const result = await window.api.productUnits.getByProduct(productId);
+    if (result.success) {
+      productUnitRows = result.units.map(u => ({
+        id: u.id,
+        unit_id: u.unit_id,
+        unit_name: u.unit_name,
+        abbreviation: u.abbreviation || '',
+        conversion_qty: u.conversion_qty,
+        selling_price: u.selling_price,
+        is_default: u.is_default
+      }));
+    } else {
+      productUnitRows = [];
+    }
+
+    // Ensure base unit row exists
+    const baseUnitObj = allUnits.find(u => u.name.toLowerCase() === baseUnit.toLowerCase());
+    const alreadyHasDefault = productUnitRows.some(r => r.is_default);
+    if (!alreadyHasDefault && baseUnitObj) {
+      productUnitRows.unshift({
+        id: null,
+        unit_id: baseUnitObj.id,
+        unit_name: baseUnitObj.name,
+        abbreviation: baseUnitObj.abbreviation,
+        conversion_qty: 1,
+        selling_price: basePrice,
+        is_default: 1
+      });
+    }
+
+    renderProductUnitsRows(baseUnit);
+    document.getElementById('productUnitsSection').classList.remove('hidden');
+  } catch (error) {
+    console.error('loadProductUnitsForEdit error:', error);
+  }
+}
+
+function renderProductUnitsRows(baseUnit) {
+  const container = document.getElementById('productUnitsContainer');
+
+  if (productUnitRows.length === 0) {
+    container.innerHTML = `<p class="text-center" style="color:#888; font-size:13px;">Belum ada satuan jual. Klik "+ Tambah Satuan Jual" untuk menambahkan.</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="data-table" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th>Satuan</th>
+          <th>Konversi</th>
+          <th>Harga Jual</th>
+          <th>Tipe</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${productUnitRows.map((row, idx) => `
+          <tr>
+            <td>${escapeHtml(row.unit_name)} <small style="color:#888;">(${escapeHtml(row.abbreviation)})</small></td>
+            <td>${row.is_default ? '1 (Dasar)' : `1 ${escapeHtml(row.unit_name)} = ${row.conversion_qty} ${escapeHtml(baseUnit || '')}`}</td>
+            <td>${formatCurrency(row.selling_price)}</td>
+            <td>
+              <span class="badge ${row.is_default ? 'badge-success' : 'badge-warning'}">
+                ${row.is_default ? 'Dasar' : 'Jual'}
+              </span>
+            </td>
+            <td class="action-buttons">
+              ${row.is_default ? '' : `
+                <button class="btn-icon" onclick="editProductUnitRow(${idx})" title="Edit">✏️</button>
+                <button class="btn-icon" onclick="deleteProductUnitRow(${idx})" title="Hapus">🗑️</button>
+              `}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function openAddProductUnitModal() {
+  if (!editingProductId) {
+    showToast('Simpan produk terlebih dahulu sebelum menambahkan satuan jual', 'warning');
+    return;
+  }
+
+  puEditIndex = null;
+  document.getElementById('productUnitModalTitle').textContent = 'Tambah Satuan Jual';
+  document.getElementById('productUnitForm').reset();
+  document.getElementById('puEditIndex').value = '';
+  document.getElementById('productUnitFormError').style.display = 'none';
+  document.getElementById('btnSubmitProductUnitText').textContent = 'Simpan';
+  document.getElementById('puPriceHint').textContent = '';
+
+  populatePuUnitSelect();
+  document.getElementById('productUnitModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('puUnitId').focus(), 100);
+}
+
+function editProductUnitRow(idx) {
+  const row = productUnitRows[idx];
+  puEditIndex = idx;
+
+  document.getElementById('productUnitModalTitle').textContent = 'Edit Satuan Jual';
+  document.getElementById('puEditIndex').value = idx;
+  document.getElementById('productUnitFormError').style.display = 'none';
+  document.getElementById('btnSubmitProductUnitText').textContent = 'Update';
+
+  populatePuUnitSelect();
+  document.getElementById('puUnitId').value = row.unit_id;
+  document.getElementById('puConversionQty').value = row.conversion_qty;
+  document.getElementById('puSellingPrice').value = row.selling_price;
+  updatePuPriceHint();
+
+  document.getElementById('productUnitModal').style.display = 'flex';
+}
+
+function deleteProductUnitRow(idx) {
+  showConfirm('Konfirmasi Hapus', 'Yakin ingin menghapus satuan jual ini?', () => {
+    productUnitRows.splice(idx, 1);
+    const baseUnit = document.getElementById('unit').value;
+    renderProductUnitsRows(baseUnit);
+  });
+}
+
+function closeProductUnitModal() {
+  document.getElementById('productUnitModal').style.display = 'none';
+  document.getElementById('productUnitForm').reset();
+  puEditIndex = null;
+}
+
+function populatePuUnitSelect() {
+  const select = document.getElementById('puUnitId');
+  const activeUnits = allUnits.filter(u => u.is_active);
+  select.innerHTML = '<option value="">Pilih Satuan</option>' +
+    activeUnits.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${escapeHtml(u.abbreviation)})</option>`).join('');
+}
+
+function updatePuPriceHint() {
+  const convQty = parseFloat(document.getElementById('puConversionQty').value) || 0;
+  const price = parseFloat(document.getElementById('puSellingPrice').value) || 0;
+  const baseUnit = document.getElementById('unit') ? document.getElementById('unit').value : '';
+  const hint = document.getElementById('puConversionHint');
+  hint.textContent = convQty > 0
+    ? `1 satuan ini = ${convQty} ${baseUnit}`
+    : 'Berapa satuan dasar dalam 1 satuan ini';
+
+  const priceHint = document.getElementById('puPriceHint');
+  if (convQty > 0 && price > 0) {
+    priceHint.textContent = `≈ ${formatCurrency(price / convQty)} per ${baseUnit}`;
+  } else {
+    priceHint.textContent = '';
+  }
+}
+
+async function handleProductUnitFormSubmit(e) {
+  e.preventDefault();
+
+  const unitId = parseInt(document.getElementById('puUnitId').value);
+  const conversionQty = parseFloat(document.getElementById('puConversionQty').value) || 0;
+  const sellingPrice = parseFloat(document.getElementById('puSellingPrice').value) || 0;
+
+  if (!unitId) {
+    showPuFormError('Pilih satuan terlebih dahulu');
+    return;
+  }
+  if (conversionQty <= 0) {
+    showPuFormError('Nilai konversi harus lebih dari 0');
+    return;
+  }
+  if (sellingPrice <= 0) {
+    showPuFormError('Harga jual harus lebih dari 0');
+    return;
+  }
+
+  const unitObj = allUnits.find(u => u.id === unitId);
+  if (!unitObj) {
+    showPuFormError('Satuan tidak valid');
+    return;
+  }
+
+  // Check duplicate (excluding current edit index)
+  const isDuplicate = productUnitRows.some((r, i) => r.unit_id === unitId && i !== puEditIndex);
+  if (isDuplicate) {
+    showPuFormError('Satuan ini sudah ditambahkan');
+    return;
+  }
+
+  const rowData = {
+    id: puEditIndex !== null ? productUnitRows[puEditIndex].id : null,
+    unit_id: unitId,
+    unit_name: unitObj.name,
+    abbreviation: unitObj.abbreviation,
+    conversion_qty: conversionQty,
+    selling_price: sellingPrice,
+    is_default: 0
+  };
+
+  if (puEditIndex !== null) {
+    productUnitRows[puEditIndex] = rowData;
+  } else {
+    productUnitRows.push(rowData);
+  }
+
+  // Persist immediately if editing existing product
+  if (editingProductId) {
+    const saveResult = await window.api.productUnits.save(editingProductId, productUnitRows);
+    if (!saveResult.success) {
+      showToast('Gagal menyimpan satuan jual', 'error');
+      return;
+    }
+    // Reload from DB to get IDs
+    const fresh = await window.api.productUnits.getByProduct(editingProductId);
+    if (fresh.success) {
+      productUnitRows = fresh.units.map(u => ({
+        id: u.id,
+        unit_id: u.unit_id,
+        unit_name: u.unit_name,
+        abbreviation: u.abbreviation || '',
+        conversion_qty: u.conversion_qty,
+        selling_price: u.selling_price,
+        is_default: u.is_default
+      }));
+    }
+  }
+
+  const baseUnit = document.getElementById('unit').value;
+  renderProductUnitsRows(baseUnit);
+  closeProductUnitModal();
+  showToast(puEditIndex !== null ? 'Satuan jual diupdate' : 'Satuan jual ditambahkan', 'success');
+}
+
+function showPuFormError(message) {
+  const el = document.getElementById('productUnitFormError');
+  el.textContent = message;
+  el.style.display = 'block';
 }

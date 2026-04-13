@@ -1,4 +1,4 @@
-const { initDb, run, get } = require('./db');
+const { initDb, run, get, query } = require('./db');
 const bcrypt = require('bcryptjs');
 
 async function initDatabase() {
@@ -246,6 +246,119 @@ async function initDatabase() {
   `;
   run(createSettingsTable);
   console.log('Settings table created successfully');
+
+    // Create supplier_returns table
+  const createSupplierReturnsTable = `
+    CREATE TABLE IF NOT EXISTS supplier_returns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      return_code TEXT UNIQUE NOT NULL,
+      purchase_id INTEGER NOT NULL,
+      supplier_id INTEGER,
+      supplier_name TEXT,
+      return_date DATE NOT NULL,
+      total_return_amount REAL NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT DEFAULT 'diproses',
+      notes TEXT,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+  run(createSupplierReturnsTable);
+  console.log('Supplier returns table created successfully');
+
+  // Create supplier_return_items table
+  const createSupplierReturnItemsTable = `
+    CREATE TABLE IF NOT EXISTS supplier_return_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      return_id INTEGER NOT NULL,
+      purchase_item_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      product_name TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      unit TEXT,
+      purchase_price REAL NOT NULL,
+      subtotal REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (return_id) REFERENCES supplier_returns(id),
+      FOREIGN KEY (purchase_item_id) REFERENCES purchase_items(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `;
+  run(createSupplierReturnItemsTable);
+  console.log('Supplier return items table created successfully');
+
+  // Create units table
+  const createUnitsTable = `
+    CREATE TABLE IF NOT EXISTS units (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      abbreviation TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  run(createUnitsTable);
+  console.log('Units table created successfully');
+
+  // Create product_units table
+  const createProductUnitsTable = `
+    CREATE TABLE IF NOT EXISTS product_units (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      unit_id INTEGER NOT NULL,
+      unit_name TEXT NOT NULL,
+      conversion_qty REAL NOT NULL DEFAULT 1,
+      selling_price REAL NOT NULL,
+      is_default INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id),
+      FOREIGN KEY (unit_id) REFERENCES units(id)
+    )
+  `;
+  run(createProductUnitsTable);
+  console.log('Product units table created successfully');
+
+  // Migration: add conversion_qty and unit_id to transaction_items if not exists
+  try {
+    const tiCols = query('PRAGMA table_info(transaction_items)');
+    const colNames = tiCols.map(r => r.name);
+    if (!colNames.includes('conversion_qty')) {
+      run('ALTER TABLE transaction_items ADD COLUMN conversion_qty REAL DEFAULT 1');
+      console.log('Migration: added conversion_qty to transaction_items');
+    }
+    if (!colNames.includes('unit_id')) {
+      run('ALTER TABLE transaction_items ADD COLUMN unit_id INTEGER');
+      console.log('Migration: added unit_id to transaction_items');
+    }
+  } catch (e) {
+    console.error('Migration error (transaction_items):', e);
+  }
+
+  // Seed default units if not exist
+  const unitsExist = get('SELECT id FROM units LIMIT 1');
+  if (!unitsExist) {
+    const defaultUnits = [
+      ['Pcs', 'pcs'],
+      ['Box', 'box'],
+      ['Pack', 'pack'],
+      ['Botol', 'btl'],
+      ['Sachet', 'sct'],
+      ['Kilogram', 'kg'],
+      ['Gram', 'gr'],
+      ['Liter', 'ltr'],
+      ['Lusin', 'lsn'],
+      ['Dus', 'dus'],
+      ['Karton', 'ktn']
+    ];
+    defaultUnits.forEach(([name, abbreviation]) => {
+      run('INSERT INTO units (name, abbreviation) VALUES (?, ?)', [name, abbreviation]);
+    });
+    console.log('Default units seeded');
+  }
 
   // Check if admin user exists
   const adminExists = get('SELECT id FROM users WHERE username = ?', ['admin']);

@@ -4,6 +4,8 @@ let cart = [];
 let currentDiscount = { type: 'none', value: 0, amount: 0 };
 let currentTax = { percent: 0, amount: 0 };
 let searchTimeout = null;
+// pending product for unit selection
+let pendingProduct = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,14 +55,13 @@ function setupEventListeners() {
     if (e.key === 'Enter') {
       e.preventDefault();
       const keyword = e.target.value.trim();
-      
-      // Check if exact barcode match
+
       if (keyword) {
         const result = await window.api.products.getByBarcode(keyword);
         if (result.success && result.product) {
-          addToCart(result.product, 1);
           document.getElementById('productSearch').value = '';
           hideSuggestions();
+          await addToCartWithUnitSelect(result.product);
         }
       }
     }
@@ -100,10 +101,16 @@ function setupEventListeners() {
   // Payment amount input - auto calculate change
   document.getElementById('paymentAmount').addEventListener('input', calculateChange);
 
+  // Unit select modal
+  document.getElementById('closeUnitSelectModal').addEventListener('click', closeUnitSelectModal);
+
   // Close suggestions when clicking outside
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.product-search-box')) {
       hideSuggestions();
+    }
+    if (e.target === document.getElementById('unitSelectModal')) {
+      closeUnitSelectModal();
     }
   });
 
@@ -155,56 +162,88 @@ function hideSuggestions() {
 async function selectProduct(productId) {
   try {
     const result = await window.api.products.getById(productId);
-    
+
     if (result.success) {
-      addToCart(result.product, 1);
       document.getElementById('productSearch').value = '';
       hideSuggestions();
-      
-      // Focus back to search
-      setTimeout(() => {
-        document.getElementById('productSearch').focus();
-      }, 100);
+      await addToCartWithUnitSelect(result.product);
     }
   } catch (error) {
     console.error('Select product error:', error);
   }
 }
 
+// Cek satuan jual tersedia; jika > 1 tampilkan modal, jika hanya 1 langsung tambah
+async function addToCartWithUnitSelect(product) {
+  try {
+    const result = await window.api.productUnits.getByProduct(product.id);
+    const units = result.success ? result.units : [];
+
+    if (units.length > 1) {
+      openUnitSelectModal(product, units);
+    } else if (units.length === 1) {
+      const u = units[0];
+      addToCart(product, 1, {
+        unit_id: u.unit_id,
+        unit_name: u.unit_name,
+        conversion_qty: u.conversion_qty,
+        selling_price: u.selling_price
+      });
+    } else {
+      // Tidak ada product_units — gunakan satuan dasar produk
+      addToCart(product, 1, null);
+    }
+  } catch (error) {
+    console.error('addToCartWithUnitSelect error:', error);
+    addToCart(product, 1, null);
+  }
+}
+
 // ============================================
 // CART MANAGEMENT
 // ============================================
-function addToCart(product, quantity) {
-  // Check stock
-  if (product.stock < quantity) {
-    showToast(`Stok ${product.name} tidak mencukupi (tersedia: ${product.stock})`, 'error');
+
+// unitInfo = { unit_id, unit_name, conversion_qty, selling_price } | null (gunakan satuan dasar)
+function addToCart(product, quantity, unitInfo) {
+  const unitName = unitInfo ? unitInfo.unit_name : (product.unit || 'pcs');
+  const unitId = unitInfo ? unitInfo.unit_id : null;
+  const conversionQty = unitInfo ? unitInfo.conversion_qty : 1;
+  const price = unitInfo ? unitInfo.selling_price : product.selling_price;
+
+  // Stock cek dalam satuan dasar
+  const stockNeeded = quantity * conversionQty;
+  if (product.stock < stockNeeded) {
+    showToast(`Stok ${product.name} tidak mencukupi (tersedia: ${product.stock} ${product.unit || 'pcs'})`, 'error');
     return;
   }
 
-  // Check if product already in cart
-  const existingIndex = cart.findIndex(item => item.product_id === product.id);
-  
+  // Cari item di cart berdasarkan product_id DAN unit_id
+  const existingIndex = cart.findIndex(
+    item => item.product_id === product.id && item.unit_id === unitId
+  );
+
   if (existingIndex !== -1) {
-    // Update quantity
     const newQty = cart[existingIndex].quantity + quantity;
-    
-    if (newQty > product.stock) {
+    const newStockNeeded = newQty * conversionQty;
+
+    if (newStockNeeded > product.stock) {
       showToast(`Stok ${product.name} tidak mencukupi`, 'error');
       return;
     }
-    
+
     cart[existingIndex].quantity = newQty;
-    cart[existingIndex].subtotal = cart[existingIndex].quantity * cart[existingIndex].price;
+    cart[existingIndex].subtotal = newQty * price;
   } else {
-    // Add new item - ensure all fields exist
     cart.push({
       product_id: product.id,
       product_name: product.name,
       barcode: product.barcode || '',
-      price: product.selling_price,
+      price: price,
       quantity: quantity,
-      unit: product.unit || 'pcs',
-      subtotal: product.selling_price * quantity,
+      unit: unitName,
+      unit_id: unitId,
+      conversion_qty: conversionQty,
+      subtotal: price * quantity,
       stock: product.stock
     });
   }
@@ -212,6 +251,7 @@ function addToCart(product, quantity) {
   renderCart();
   calculateTotal();
   saveDraft();
+  setTimeout(() => document.getElementById('productSearch').focus(), 100);
 }
 
 function updateCartItemQty(index, newQty) {
@@ -221,9 +261,11 @@ function updateCartItemQty(index, newQty) {
   }
 
   const item = cart[index];
-  
-  if (newQty > item.stock) {
-    showToast(`Stok tidak mencukupi (tersedia: ${item.stock})`, 'error');
+  const convQty = item.conversion_qty || 1;
+  const stockNeeded = newQty * convQty;
+
+  if (stockNeeded > item.stock) {
+    showToast(`Stok tidak mencukupi (tersedia: ${Math.floor(item.stock / convQty)} ${item.unit})`, 'error');
     return;
   }
 
@@ -277,22 +319,26 @@ function renderCart() {
     <tr>
       <td>${index + 1}</td>
       <td>${escapeHtml(item.product_name)}</td>
+      <td>
+        <button class="btn-unit-select" onclick="changeCartItemUnit(${index})" title="Ganti satuan">
+          ${escapeHtml(item.unit)}
+          <span style="font-size:10px; opacity:0.6;">▼</span>
+        </button>
+      </td>
       <td>${formatCurrency(item.price)}</td>
       <td>
         <div class="qty-controls">
           <button class="btn-qty" onclick="updateCartItemQty(${index}, ${item.quantity - 1})">-</button>
-          <input 
-            type="number" 
-            class="qty-input" 
+          <input
+            type="number"
+            class="qty-input"
             value="${item.quantity}"
             min="1"
-            max="${item.stock}"
             onchange="updateCartItemQty(${index}, parseInt(this.value))"
           >
           <button class="btn-qty" onclick="updateCartItemQty(${index}, ${item.quantity + 1})">+</button>
         </div>
       </td>
-      <td>${item.unit}</td>
       <td><strong>${formatCurrency(item.subtotal)}</strong></td>
       <td>
         <button class="btn-remove" onclick="removeCartItem(${index})" title="Hapus">
@@ -433,6 +479,8 @@ async function processTransaction() {
     barcode: item.barcode || '',
     quantity: item.quantity,
     unit: item.unit || 'pcs',
+    unit_id: item.unit_id || null,
+    conversion_qty: item.conversion_qty || 1,
     price: item.price,
     subtotal: item.subtotal
   }));
@@ -500,6 +548,144 @@ async function processTransaction() {
     btnProcess.disabled = false;
     btnProcess.textContent = '✓ Proses Pembayaran';
   }
+}
+
+// ============================================
+// UNIT SELECT MODAL
+// ============================================
+
+function openUnitSelectModal(product, units) {
+  pendingProduct = { product, units };
+
+  document.getElementById('unitSelectProductName').textContent = product.name;
+
+  const list = document.getElementById('unitSelectList');
+  list.innerHTML = units.map(u => {
+    const maxQty = Math.floor(product.stock / u.conversion_qty);
+    const disabled = maxQty <= 0 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
+    return `
+      <button class="btn btn-secondary" style="text-align:left; padding:10px 14px;" ${disabled}
+        onclick="selectUnitForCart(${u.unit_id})">
+        <strong>${escapeHtml(u.unit_name)}</strong>
+        <span style="float:right; color:#888; font-size:12px;">
+          ${u.conversion_qty > 1 ? `isi ${u.conversion_qty} &bull; ` : ''}${formatCurrency(u.selling_price)}
+          ${maxQty > 0 ? `<br><small>Maks: ${maxQty} ${escapeHtml(u.unit_name)}</small>` : '<br><small style="color:#e74c3c;">Stok habis</small>'}
+        </span>
+      </button>
+    `;
+  }).join('');
+
+  document.getElementById('unitSelectModal').style.display = 'flex';
+}
+
+function closeUnitSelectModal() {
+  document.getElementById('unitSelectModal').style.display = 'none';
+  pendingProduct = null;
+}
+
+function selectUnitForCart(unitId) {
+  if (!pendingProduct) return;
+
+  const { product, units } = pendingProduct;
+  const u = units.find(x => x.unit_id === unitId);
+  if (!u) return;
+
+  closeUnitSelectModal();
+  addToCart(product, 1, {
+    unit_id: u.unit_id,
+    unit_name: u.unit_name,
+    conversion_qty: u.conversion_qty,
+    selling_price: u.selling_price
+  });
+}
+
+async function changeCartItemUnit(index) {
+  const item = cart[index];
+
+  try {
+    const productResult = await window.api.products.getById(item.product_id);
+    if (!productResult.success) return;
+
+    const unitsResult = await window.api.productUnits.getByProduct(item.product_id);
+    if (!unitsResult.success || unitsResult.units.length <= 1) return;
+
+    const product = { ...productResult.product };
+    // Restore stock karena item sudah di cart, tambahkan kembali untuk validasi
+    const currentStockUsed = item.quantity * (item.conversion_qty || 1);
+    product.stock = product.stock + currentStockUsed;
+
+    // Simpan index untuk diupdate setelah pilih
+    pendingProduct = {
+      product,
+      units: unitsResult.units,
+      replaceCartIndex: index
+    };
+
+    document.getElementById('unitSelectProductName').textContent = product.name;
+
+    const list = document.getElementById('unitSelectList');
+    list.innerHTML = unitsResult.units.map(u => {
+      const maxQty = Math.floor(product.stock / u.conversion_qty);
+      const isCurrent = item.unit_id === u.unit_id;
+      const disabled = maxQty <= 0 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
+      return `
+        <button class="btn ${isCurrent ? 'btn-primary' : 'btn-secondary'}"
+          style="text-align:left; padding:10px 14px;" ${disabled}
+          onclick="applyUnitChange(${u.unit_id})">
+          <strong>${escapeHtml(u.unit_name)}</strong>
+          ${isCurrent ? ' <small>(sekarang)</small>' : ''}
+          <span style="float:right; color:#888; font-size:12px;">
+            ${u.conversion_qty > 1 ? `isi ${u.conversion_qty} &bull; ` : ''}${formatCurrency(u.selling_price)}
+            ${maxQty > 0 ? `<br><small>Maks: ${maxQty} ${escapeHtml(u.unit_name)}</small>` : '<br><small style="color:#e74c3c;">Stok habis</small>'}
+          </span>
+        </button>
+      `;
+    }).join('');
+
+    document.getElementById('unitSelectModal').style.display = 'flex';
+  } catch (error) {
+    console.error('changeCartItemUnit error:', error);
+  }
+}
+
+function applyUnitChange(unitId) {
+  if (!pendingProduct) return;
+
+  const { product, units, replaceCartIndex } = pendingProduct;
+
+  if (replaceCartIndex === undefined) {
+    selectUnitForCart(unitId);
+    return;
+  }
+
+  const u = units.find(x => x.unit_id === unitId);
+  if (!u) return;
+
+  const item = cart[replaceCartIndex];
+  const convQty = u.conversion_qty || 1;
+  const stockNeeded = item.quantity * convQty;
+
+  if (stockNeeded > product.stock) {
+    // Kurangi qty agar muat
+    const maxQty = Math.floor(product.stock / convQty);
+    if (maxQty <= 0) {
+      showToast('Stok tidak mencukupi untuk satuan ini', 'error');
+      closeUnitSelectModal();
+      return;
+    }
+    cart[replaceCartIndex].quantity = maxQty;
+  }
+
+  cart[replaceCartIndex].unit = u.unit_name;
+  cart[replaceCartIndex].unit_id = u.unit_id;
+  cart[replaceCartIndex].conversion_qty = convQty;
+  cart[replaceCartIndex].price = u.selling_price;
+  cart[replaceCartIndex].subtotal = cart[replaceCartIndex].quantity * u.selling_price;
+
+  closeUnitSelectModal();
+  renderCart();
+  calculateTotal();
+  saveDraft();
 }
 
 function getPaymentMethodLabel(method) {

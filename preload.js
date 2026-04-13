@@ -76,6 +76,28 @@ contextBridge.exposeInMainWorld('api', {
     getDetail: (id) => ipcRenderer.invoke('suppliers:getDetail', id),
     getActiveList: () => ipcRenderer.invoke('suppliers:getActiveList')
   },
+  supplierReturns: {
+    getAll: (filters) => ipcRenderer.invoke('supplierReturns:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('supplierReturns:getById', id),
+    create: (data) => ipcRenderer.invoke('supplierReturns:create', data),
+    updateStatus: (id, status) => ipcRenderer.invoke('supplierReturns:updateStatus', id, status),
+    delete: (id) => ipcRenderer.invoke('supplierReturns:delete', id),
+    getPurchaseItems: (purchaseId) => ipcRenderer.invoke('supplierReturns:getPurchaseItems', purchaseId)
+  },
+  units: {
+    getAll: () => ipcRenderer.invoke('units:getAll'),
+    getById: (id) => ipcRenderer.invoke('units:getById', id),
+    getActive: () => ipcRenderer.invoke('units:getActive'),
+    create: (data) => ipcRenderer.invoke('units:create', data),
+    update: (id, data) => ipcRenderer.invoke('units:update', id, data),
+    delete: (id) => ipcRenderer.invoke('units:delete', id),
+    toggleStatus: (id) => ipcRenderer.invoke('units:toggleStatus', id)
+  },
+  productUnits: {
+    getByProduct: (productId) => ipcRenderer.invoke('productUnits:getByProduct', productId),
+    save: (productId, units) => ipcRenderer.invoke('productUnits:save', productId, units),
+    delete: (id) => ipcRenderer.invoke('productUnits:delete', id)
+  },
   finance: {
     getDashboard: (filters) => ipcRenderer.invoke('finance:getDashboard', filters),
     getTopProducts: (filters) => ipcRenderer.invoke('finance:getTopProducts', filters)

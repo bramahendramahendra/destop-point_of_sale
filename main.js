@@ -856,16 +856,21 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
         barcode: item.barcode || '',
         quantity: item.quantity || 0,
         unit: item.unit || 'pcs',
+        unit_id: item.unit_id || null,
+        conversion_qty: item.conversion_qty || 1,
         price: item.price || 0,
         subtotal: item.subtotal || 0
       };
 
+      // Stock deduction in base unit (quantity * conversion_qty)
+      const stockDeduction = itemData.quantity * itemData.conversion_qty;
+
       // Insert transaction item
       dbModule.run(
         `INSERT INTO transaction_items (
-          transaction_id, product_id, product_name, barcode, 
-          quantity, unit, price, subtotal
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          transaction_id, product_id, product_name, barcode,
+          quantity, unit, unit_id, conversion_qty, price, subtotal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           itemData.transaction_id,
           itemData.product_id,
@@ -873,30 +878,32 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
           itemData.barcode,
           itemData.quantity,
           itemData.unit,
+          itemData.unit_id,
+          itemData.conversion_qty,
           itemData.price,
           itemData.subtotal
         ]
       );
 
-      // Update product stock
+      // Update product stock (deduct in base unit)
       dbModule.run(
         'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [itemData.quantity, itemData.product_id]
+        [stockDeduction, itemData.product_id]
       );
 
-      // Create stock mutation
+      // Create stock mutation (quantity in base unit)
       dbModule.run(
         `INSERT INTO stock_mutations (
-          product_id, mutation_type, quantity, reference_type, reference_id, 
+          product_id, mutation_type, quantity, reference_type, reference_id,
           notes, user_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           itemData.product_id,
           'out',
-          itemData.quantity,
+          stockDeduction,
           'sale',
           transactionId,
-          `Penjualan ${txData.transaction_code}`,
+          `Penjualan ${txData.transaction_code} (${itemData.quantity} ${itemData.unit})`,
           txData.user_id
         ]
       );
@@ -2053,6 +2060,451 @@ ipcMain.handle('suppliers:toggleStatus', async (event, id) => {
   } catch (error) {
     console.error('suppliers:toggleStatus error:', error);
     return { success: false, message: 'Gagal mengubah status supplier' };
+  }
+});
+
+// ============================================
+// SUPPLIER RETURNS IPC HANDLERS
+// ============================================
+
+function generateReturnCode() {
+  const now = new Date();
+  const datePart = now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+  const last = dbModule.get(
+    "SELECT return_code FROM supplier_returns ORDER BY id DESC LIMIT 1"
+  );
+  let seq = 1;
+  if (last) {
+    const parts = last.return_code.split('-');
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastSeq)) seq = lastSeq + 1;
+  }
+  return `RTR-${datePart}-${String(seq).padStart(4, '0')}`;
+}
+
+// Get purchase items for a given purchase (to fill return form)
+ipcMain.handle('supplierReturns:getPurchaseItems', async (event, purchaseId) => {
+  try {
+    const purchase = dbModule.get(
+      `SELECT p.*, s.name as supplier_name_from_db
+       FROM purchases p
+       LEFT JOIN suppliers s ON p.supplier_id = s.id
+       WHERE p.id = ?`,
+      [purchaseId]
+    );
+    if (!purchase) return { success: false, message: 'Pembelian tidak ditemukan' };
+
+    const items = dbModule.all(
+      `SELECT pi.*, pr.name as product_current_name
+       FROM purchase_items pi
+       LEFT JOIN products pr ON pi.product_id = pr.id
+       WHERE pi.purchase_id = ?`,
+      [purchaseId]
+    );
+
+    return { success: true, purchase, items };
+  } catch (error) {
+    console.error('supplierReturns:getPurchaseItems error:', error);
+    return { success: false, message: 'Gagal memuat data pembelian' };
+  }
+});
+
+// Get all supplier returns with filters
+ipcMain.handle('supplierReturns:getAll', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT sr.*,
+             p.purchase_code,
+             u.full_name as user_name
+      FROM supplier_returns sr
+      LEFT JOIN purchases p ON sr.purchase_id = p.id
+      LEFT JOIN users u ON sr.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (filters.supplierId) {
+      sql += ' AND sr.supplier_id = ?';
+      params.push(filters.supplierId);
+    }
+    if (filters.status) {
+      sql += ' AND sr.status = ?';
+      params.push(filters.status);
+    }
+    if (filters.startDate) {
+      sql += ' AND DATE(sr.return_date) >= DATE(?)';
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      sql += ' AND DATE(sr.return_date) <= DATE(?)';
+      params.push(filters.endDate);
+    }
+
+    sql += ' ORDER BY sr.created_at DESC';
+
+    const returns = dbModule.all(sql, params);
+    return { success: true, returns };
+  } catch (error) {
+    console.error('supplierReturns:getAll error:', error);
+    return { success: false, message: 'Gagal memuat data retur' };
+  }
+});
+
+// Get supplier return by ID with items
+ipcMain.handle('supplierReturns:getById', async (event, id) => {
+  try {
+    const ret = dbModule.get(
+      `SELECT sr.*, p.purchase_code, u.full_name as user_name
+       FROM supplier_returns sr
+       LEFT JOIN purchases p ON sr.purchase_id = p.id
+       LEFT JOIN users u ON sr.user_id = u.id
+       WHERE sr.id = ?`,
+      [id]
+    );
+    if (!ret) return { success: false, message: 'Retur tidak ditemukan' };
+
+    const items = dbModule.all(
+      'SELECT * FROM supplier_return_items WHERE return_id = ?',
+      [id]
+    );
+    ret.items = items;
+
+    return { success: true, return: ret };
+  } catch (error) {
+    console.error('supplierReturns:getById error:', error);
+    return { success: false, message: 'Gagal memuat detail retur' };
+  }
+});
+
+// Create supplier return
+ipcMain.handle('supplierReturns:create', async (event, data) => {
+  try {
+    if (!currentUser) return { success: false, message: 'User tidak ditemukan' };
+
+    const returnCode = generateReturnCode();
+
+    // Get purchase to know supplier
+    const purchase = dbModule.get('SELECT * FROM purchases WHERE id = ?', [data.purchase_id]);
+    if (!purchase) return { success: false, message: 'Pembelian tidak ditemukan' };
+
+    const totalReturnAmount = data.items.reduce((sum, item) => sum + item.subtotal, 0);
+
+    // Insert supplier return header
+    dbModule.run(
+      `INSERT INTO supplier_returns (
+        return_code, purchase_id, supplier_id, supplier_name, return_date,
+        total_return_amount, reason, status, notes, user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'diproses', ?, ?)`,
+      [
+        returnCode,
+        data.purchase_id,
+        purchase.supplier_id || null,
+        purchase.supplier_name || '',
+        data.return_date,
+        totalReturnAmount,
+        data.reason,
+        data.notes || '',
+        currentUser.id
+      ]
+    );
+
+    const inserted = dbModule.get(
+      'SELECT id FROM supplier_returns WHERE return_code = ?',
+      [returnCode]
+    );
+    if (!inserted) throw new Error('Gagal mengambil ID retur yang baru dibuat');
+
+    const returnId = inserted.id;
+
+    // Insert return items, reduce stock, create stock mutations
+    for (const item of data.items) {
+      dbModule.run(
+        `INSERT INTO supplier_return_items (
+          return_id, purchase_item_id, product_id, product_name,
+          quantity, unit, purchase_price, subtotal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          returnId,
+          item.purchase_item_id,
+          item.product_id,
+          item.product_name,
+          item.quantity,
+          item.unit || 'pcs',
+          item.purchase_price,
+          item.subtotal
+        ]
+      );
+
+      // Reduce product stock
+      dbModule.run(
+        'UPDATE products SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [item.quantity, item.product_id]
+      );
+
+      // Stock mutation
+      dbModule.run(
+        `INSERT INTO stock_mutations (
+          product_id, mutation_type, quantity, reference_type, reference_id, notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item.product_id,
+          'out',
+          item.quantity,
+          'supplier_return',
+          returnId,
+          `Retur ke supplier ${returnCode}`,
+          currentUser.id
+        ]
+      );
+    }
+
+    // Reduce remaining debt on purchase if not fully paid
+    if (purchase.payment_status !== 'paid') {
+      const newRemaining = Math.max(0, (purchase.remaining_amount || 0) - totalReturnAmount);
+      const newPaidEffective = purchase.total_amount - newRemaining;
+      let newStatus = 'partial';
+      if (newRemaining <= 0) newStatus = 'paid';
+      else if (newPaidEffective <= 0) newStatus = 'unpaid';
+
+      dbModule.run(
+        `UPDATE purchases SET remaining_amount = ?, payment_status = ? WHERE id = ?`,
+        [newRemaining, newStatus, purchase.id]
+      );
+    }
+
+    console.log('Supplier return created:', returnCode);
+    return { success: true, returnCode, returnId };
+  } catch (error) {
+    console.error('supplierReturns:create error:', error);
+    return { success: false, message: 'Gagal menyimpan retur: ' + error.message };
+  }
+});
+
+// Update return status
+ipcMain.handle('supplierReturns:updateStatus', async (event, id, status) => {
+  try {
+    const ret = dbModule.get('SELECT id FROM supplier_returns WHERE id = ?', [id]);
+    if (!ret) return { success: false, message: 'Retur tidak ditemukan' };
+
+    dbModule.run(
+      'UPDATE supplier_returns SET status = ? WHERE id = ?',
+      [status, id]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('supplierReturns:updateStatus error:', error);
+    return { success: false, message: 'Gagal mengubah status retur' };
+  }
+});
+
+// Delete supplier return
+ipcMain.handle('supplierReturns:delete', async (event, id) => {
+  try {
+    const ret = dbModule.get('SELECT * FROM supplier_returns WHERE id = ?', [id]);
+    if (!ret) return { success: false, message: 'Retur tidak ditemukan' };
+
+    if (ret.status === 'selesai') {
+      return { success: false, message: 'Retur yang sudah selesai tidak dapat dihapus' };
+    }
+
+    // Get return items to restore stock
+    const items = dbModule.all(
+      'SELECT * FROM supplier_return_items WHERE return_id = ?',
+      [id]
+    );
+
+    for (const item of items) {
+      // Restore stock
+      dbModule.run(
+        'UPDATE products SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [item.quantity, item.product_id]
+      );
+
+      // Stock mutation
+      dbModule.run(
+        `INSERT INTO stock_mutations (
+          product_id, mutation_type, quantity, reference_type, reference_id, notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item.product_id,
+          'in',
+          item.quantity,
+          'supplier_return_delete',
+          id,
+          `Hapus retur ${ret.return_code}`,
+          currentUser ? currentUser.id : null
+        ]
+      );
+    }
+
+    // Restore remaining_amount on purchase
+    const purchase = dbModule.get('SELECT * FROM purchases WHERE id = ?', [ret.purchase_id]);
+    if (purchase) {
+      const newRemaining = (purchase.remaining_amount || 0) + ret.total_return_amount;
+      const cap = Math.min(newRemaining, purchase.total_amount);
+      let newStatus = 'partial';
+      if (cap <= 0) newStatus = 'unpaid';
+      else if (cap >= purchase.total_amount) newStatus = purchase.paid_amount > 0 ? 'partial' : 'unpaid';
+      // recalculate properly
+      const paid = purchase.paid_amount || 0;
+      const remaining2 = purchase.total_amount - paid;
+      let finalStatus = 'partial';
+      if (remaining2 <= 0) finalStatus = 'paid';
+      else if (paid <= 0) finalStatus = 'unpaid';
+
+      dbModule.run(
+        'UPDATE purchases SET remaining_amount = ?, payment_status = ? WHERE id = ?',
+        [remaining2, finalStatus, purchase.id]
+      );
+    }
+
+    dbModule.run('DELETE FROM supplier_return_items WHERE return_id = ?', [id]);
+    dbModule.run('DELETE FROM supplier_returns WHERE id = ?', [id]);
+
+    console.log('Supplier return deleted:', id);
+    return { success: true };
+  } catch (error) {
+    console.error('supplierReturns:delete error:', error);
+    return { success: false, message: 'Gagal menghapus retur: ' + error.message };
+  }
+});
+
+// ============================================
+// UNITS MANAGEMENT IPC HANDLERS
+// ============================================
+
+ipcMain.handle('units:getAll', async () => {
+  try {
+    const units = dbModule.all('SELECT * FROM units ORDER BY name');
+    return { success: true, units };
+  } catch (error) {
+    console.error('units:getAll error:', error);
+    return { success: false, message: 'Gagal memuat data satuan' };
+  }
+});
+
+ipcMain.handle('units:getActive', async () => {
+  try {
+    const units = dbModule.all('SELECT * FROM units WHERE is_active = 1 ORDER BY name');
+    return { success: true, units };
+  } catch (error) {
+    console.error('units:getActive error:', error);
+    return { success: false, message: 'Gagal memuat data satuan' };
+  }
+});
+
+ipcMain.handle('units:getById', async (event, id) => {
+  try {
+    const unit = dbModule.get('SELECT * FROM units WHERE id = ?', [id]);
+    if (!unit) return { success: false, message: 'Satuan tidak ditemukan' };
+    return { success: true, unit };
+  } catch (error) {
+    console.error('units:getById error:', error);
+    return { success: false, message: 'Gagal memuat data satuan' };
+  }
+});
+
+ipcMain.handle('units:create', async (event, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM units WHERE name = ?', [data.name]);
+    if (existing) return { success: false, message: 'Nama satuan sudah ada' };
+    dbModule.run(
+      'INSERT INTO units (name, abbreviation, is_active) VALUES (?, ?, 1)',
+      [data.name, data.abbreviation]
+    );
+    const unit = dbModule.get('SELECT * FROM units WHERE name = ?', [data.name]);
+    return { success: true, unit };
+  } catch (error) {
+    console.error('units:create error:', error);
+    return { success: false, message: 'Gagal menambahkan satuan' };
+  }
+});
+
+ipcMain.handle('units:update', async (event, id, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM units WHERE name = ? AND id != ?', [data.name, id]);
+    if (existing) return { success: false, message: 'Nama satuan sudah ada' };
+    dbModule.run(
+      'UPDATE units SET name = ?, abbreviation = ? WHERE id = ?',
+      [data.name, data.abbreviation, id]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('units:update error:', error);
+    return { success: false, message: 'Gagal mengupdate satuan' };
+  }
+});
+
+ipcMain.handle('units:delete', async (event, id) => {
+  try {
+    const used = dbModule.get('SELECT id FROM product_units WHERE unit_id = ? LIMIT 1', [id]);
+    if (used) return { success: false, message: 'Satuan sedang digunakan oleh produk, tidak dapat dihapus' };
+    dbModule.run('DELETE FROM units WHERE id = ?', [id]);
+    return { success: true };
+  } catch (error) {
+    console.error('units:delete error:', error);
+    return { success: false, message: 'Gagal menghapus satuan' };
+  }
+});
+
+ipcMain.handle('units:toggleStatus', async (event, id) => {
+  try {
+    dbModule.run('UPDATE units SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?', [id]);
+    return { success: true };
+  } catch (error) {
+    console.error('units:toggleStatus error:', error);
+    return { success: false, message: 'Gagal mengubah status satuan' };
+  }
+});
+
+// ============================================
+// PRODUCT UNITS IPC HANDLERS
+// ============================================
+
+ipcMain.handle('productUnits:getByProduct', async (event, productId) => {
+  try {
+    const units = dbModule.all(
+      `SELECT pu.*, u.abbreviation
+       FROM product_units pu
+       LEFT JOIN units u ON pu.unit_id = u.id
+       WHERE pu.product_id = ?
+       ORDER BY pu.is_default DESC, pu.conversion_qty ASC`,
+      [productId]
+    );
+    return { success: true, units };
+  } catch (error) {
+    console.error('productUnits:getByProduct error:', error);
+    return { success: false, message: 'Gagal memuat satuan produk' };
+  }
+});
+
+ipcMain.handle('productUnits:save', async (event, productId, units) => {
+  try {
+    // Delete existing, re-insert all
+    dbModule.run('DELETE FROM product_units WHERE product_id = ?', [productId]);
+    for (const u of units) {
+      dbModule.run(
+        `INSERT INTO product_units (product_id, unit_id, unit_name, conversion_qty, selling_price, is_default)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [productId, u.unit_id, u.unit_name, u.conversion_qty, u.selling_price, u.is_default ? 1 : 0]
+      );
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('productUnits:save error:', error);
+    return { success: false, message: 'Gagal menyimpan satuan produk' };
+  }
+});
+
+ipcMain.handle('productUnits:delete', async (event, id) => {
+  try {
+    dbModule.run('DELETE FROM product_units WHERE id = ?', [id]);
+    return { success: true };
+  } catch (error) {
+    console.error('productUnits:delete error:', error);
+    return { success: false, message: 'Gagal menghapus satuan produk' };
   }
 });
 

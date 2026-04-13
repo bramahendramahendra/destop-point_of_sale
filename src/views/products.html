@@ -25,6 +25,7 @@
         <div class="tabs">
           <button class="tab-button active" data-tab="products">Produk</button>
           <button class="tab-button" data-tab="categories">Kategori</button>
+          <button class="tab-button" data-tab="units">Satuan</button>
         </div>
       </div>
 
@@ -105,6 +106,32 @@
               </tr>
             </thead>
             <tbody id="categoriesTableBody">
+              <tr>
+                <td colspan="4" class="text-center">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Tab Content: Units -->
+      <div id="units-tab" class="tab-content">
+        <div class="tab-header">
+          <button class="btn btn-primary" id="btnAddUnit">
+            <span>➕</span> Tambah Satuan
+          </button>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table" id="unitsTable">
+            <thead>
+              <tr>
+                <th>Nama Satuan</th>
+                <th>Singkatan</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="unitsTableBody">
               <tr>
                 <td colspan="4" class="text-center">Loading...</td>
               </tr>
@@ -238,6 +265,21 @@
             </div>
           </div>
 
+          <!-- Satuan Jual Section (hanya tampil saat edit) -->
+          <div id="productUnitsSection" class="hidden">
+            <hr style="margin: 16px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <label style="font-weight:600; font-size:14px;">Satuan Jual</label>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnAddProductUnit">➕ Tambah Satuan Jual</button>
+            </div>
+            <small class="form-text" style="display:block; margin-bottom:8px;">
+              Satuan dasar = satuan pada produk. Tambahkan satuan jual lain beserta konversi dan harganya.
+            </small>
+            <div id="productUnitsContainer">
+              <!-- rows will be injected here -->
+            </div>
+          </div>
+
           <div id="productFormError" class="error-message hidden"></div>
 
           <div class="modal-footer">
@@ -287,6 +329,84 @@
             <button type="button" class="btn btn-secondary" id="btnCancelCategory">Batal</button>
             <button type="submit" class="btn btn-primary" id="btnSubmitCategory">
               <span id="btnSubmitCategoryText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Unit -->
+  <div id="unitModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="unitModalTitle">Tambah Satuan</h2>
+        <button class="modal-close" id="closeUnitModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="unitForm">
+          <input type="hidden" id="unitId">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="unitName">Nama Satuan <span class="required">*</span></label>
+              <input type="text" id="unitName" placeholder="Contoh: Dus, Lusin, Karton" required>
+            </div>
+            <div class="form-group">
+              <label for="unitAbbreviation">Singkatan <span class="required">*</span></label>
+              <input type="text" id="unitAbbreviation" placeholder="Contoh: dus, lsn, ktn" required>
+            </div>
+          </div>
+
+          <div id="unitFormError" class="error-message hidden"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelUnit">Batal</button>
+            <button type="submit" class="btn btn-primary">
+              <span id="btnSubmitUnitText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Product Unit -->
+  <div id="productUnitModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="productUnitModalTitle">Tambah Satuan Jual</h2>
+        <button class="modal-close" id="closeProductUnitModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="productUnitForm">
+          <input type="hidden" id="puEditIndex">
+
+          <div class="form-group">
+            <label for="puUnitId">Satuan <span class="required">*</span></label>
+            <select id="puUnitId" required>
+              <option value="">Pilih Satuan</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="puConversionQty">Isi / Konversi ke Satuan Dasar <span class="required">*</span></label>
+            <input type="number" id="puConversionQty" placeholder="Contoh: 24 (1 dus = 24 botol)" min="1" step="1" required>
+            <small class="form-text" id="puConversionHint">Berapa satuan dasar dalam 1 satuan ini</small>
+          </div>
+
+          <div class="form-group">
+            <label for="puSellingPrice">Harga Jual <span class="required">*</span></label>
+            <input type="number" id="puSellingPrice" placeholder="0" min="0" step="100" required>
+            <small class="form-text" id="puPriceHint"></small>
+          </div>
+
+          <div id="productUnitFormError" class="error-message hidden"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelProductUnit">Batal</button>
+            <button type="submit" class="btn btn-primary">
+              <span id="btnSubmitProductUnitText">Simpan</span>
             </button>
           </div>
         </form>

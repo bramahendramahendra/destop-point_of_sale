@@ -48,9 +48,9 @@
                 <tr>
                   <th width="40">No</th>
                   <th>Nama Produk</th>
-                  <th width="100">Harga</th>
+                  <th width="130">Satuan Jual</th>
+                  <th width="110">Harga</th>
                   <th width="120">Qty</th>
-                  <th width="60">Satuan</th>
                   <th width="120">Subtotal</th>
                   <th width="50">Aksi</th>
                 </tr>
@@ -209,6 +209,22 @@
           <button type="button" class="btn btn-success btn-large" id="btnProcessPayment">
             ✓ Proses Pembayaran
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pilih Satuan Jual -->
+  <div id="unitSelectModal" class="modal">
+    <div class="modal-content" style="max-width:460px;">
+      <div class="modal-header">
+        <h2>Pilih Satuan Jual</h2>
+        <button class="modal-close" id="closeUnitSelectModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="unitSelectProductName" style="font-weight:600; margin-bottom:12px;"></p>
+        <div id="unitSelectList" style="display:flex; flex-direction:column; gap:8px;">
+          <!-- unit option buttons injected here -->
         </div>
       </div>
     </div>

@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadDashboard();
   await loadProducts();
   await checkCurrentCashDrawer();
+  await loadReturnSupplierFilter();
   
   // Populate dropdowns
   populateExpenseCategories();
@@ -100,9 +101,20 @@ function setupEventListeners() {
   document.getElementById('closeDetailPurchaseModal').addEventListener('click', closeDetailPurchaseModal);
   document.getElementById('btnCloseDetailPurchase').addEventListener('click', closeDetailPurchaseModal);
 
+  // Supplier Returns
+  document.getElementById('btnAddReturn').addEventListener('click', openAddReturnModal);
+  document.getElementById('btnApplyReturnFilter').addEventListener('click', loadReturns);
+  document.getElementById('closeReturnModal').addEventListener('click', closeReturnModal);
+  document.getElementById('btnCancelReturn').addEventListener('click', closeReturnModal);
+  document.getElementById('returnForm').addEventListener('submit', handleReturnFormSubmit);
+  document.getElementById('returnPurchaseId').addEventListener('change', handleReturnPurchaseChange);
+  document.getElementById('closeDetailReturnModal').addEventListener('click', closeDetailReturnModal);
+  document.getElementById('btnCloseDetailReturn').addEventListener('click', closeDetailReturnModal);
+  document.getElementById('btnMarkReturnDone').addEventListener('click', markReturnDone);
+
   // Close modals when clicking outside
   window.addEventListener('click', (e) => {
-    const modals = ['openCashModal', 'closeCashModal', 'detailCashModal', 'expenseModal', 'purchaseModal', 'addPurchaseItemModal', 'payPurchaseModal', 'detailPurchaseModal'];
+    const modals = ['openCashModal', 'closeCashModal', 'detailCashModal', 'expenseModal', 'purchaseModal', 'addPurchaseItemModal', 'payPurchaseModal', 'detailPurchaseModal', 'returnModal', 'detailReturnModal'];
     modals.forEach(modalId => {
       const modal = document.getElementById(modalId);
       if (e.target === modal) {
@@ -141,6 +153,9 @@ function switchTab(tabName) {
     loadExpenses();
   } else if (tabName === 'purchases') {
     loadPurchases();
+  } else if (tabName === 'supplier-returns') {
+    loadReturnSupplierFilter();
+    loadReturns();
   }
 }
 
@@ -1600,4 +1615,407 @@ async function deletePurchase(purchaseId) {
     console.error('Delete purchase error:', error);
     showToast('Terjadi kesalahan', 'error');
   }
+}
+
+// ============================================
+// SUPPLIER RETURNS
+// ============================================
+
+let allReturns = [];
+let purchasesForReturn = [];
+let returnPurchaseItems = [];
+let currentReturnId = null;
+
+async function loadReturns() {
+  try {
+    const filters = {
+      supplierId: document.getElementById('returnFilterSupplier').value || undefined,
+      status: document.getElementById('returnFilterStatus').value || undefined,
+      startDate: document.getElementById('returnFilterStartDate').value || undefined,
+      endDate: document.getElementById('returnFilterEndDate').value || undefined
+    };
+
+    // Remove undefined keys
+    Object.keys(filters).forEach(k => filters[k] === undefined && delete filters[k]);
+
+    const result = await window.api.supplierReturns.getAll(filters);
+
+    if (result.success) {
+      allReturns = result.returns;
+      renderReturnsTable(allReturns);
+      updateReturnsSummary(allReturns);
+    } else {
+      showToast(result.message || 'Gagal memuat data retur', 'error');
+    }
+  } catch (error) {
+    console.error('loadReturns error:', error);
+    showToast('Terjadi kesalahan saat memuat data retur', 'error');
+  }
+}
+
+function renderReturnsTable(returns) {
+  const tbody = document.getElementById('returnsTableBody');
+
+  if (!returns || returns.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Tidak ada data retur</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = returns.map(r => `
+    <tr>
+      <td><strong>${escapeHtml(r.return_code)}</strong></td>
+      <td>${formatDate(r.return_date)}</td>
+      <td>${escapeHtml(r.purchase_code || '-')}</td>
+      <td>${escapeHtml(r.supplier_name || '-')}</td>
+      <td>${formatCurrency(r.total_return_amount)}</td>
+      <td>${escapeHtml(r.reason)}</td>
+      <td>${renderReturnStatusBadge(r.status)}</td>
+      <td>
+        <div class="action-buttons">
+          <button class="btn btn-sm btn-info" onclick="openDetailReturnModal(${r.id})">Detail</button>
+          ${r.status === 'diproses' ? `<button class="btn btn-sm btn-danger" onclick="confirmDeleteReturn(${r.id}, '${escapeHtml(r.return_code)}')">Hapus</button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderReturnStatusBadge(status) {
+  if (status === 'selesai') {
+    return '<span class="badge badge-success">Selesai</span>';
+  }
+  return '<span class="badge badge-warning">Diproses</span>';
+}
+
+function updateReturnsSummary(returns) {
+  const total = returns.reduce((sum, r) => sum + (r.total_return_amount || 0), 0);
+  document.getElementById('returnsTotal').textContent = formatCurrency(total);
+  document.getElementById('returnsCount').textContent = returns.length;
+}
+
+async function loadPurchasesForReturn() {
+  try {
+    const result = await window.api.purchases.getAll({});
+    if (result.success) {
+      purchasesForReturn = result.purchases;
+      const select = document.getElementById('returnPurchaseId');
+      select.innerHTML = '<option value="">-- Pilih PO --</option>';
+      purchasesForReturn.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.purchase_code} - ${p.supplier_name || 'Tanpa Supplier'} (${formatDate(p.purchase_date)})`;
+        select.appendChild(opt);
+      });
+    }
+  } catch (error) {
+    console.error('loadPurchasesForReturn error:', error);
+  }
+}
+
+async function loadReturnSupplierFilter() {
+  try {
+    const result = await window.api.suppliers.getActiveList();
+    if (result.success) {
+      const select = document.getElementById('returnFilterSupplier');
+      select.innerHTML = '<option value="">Semua Supplier</option>';
+      result.suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        select.appendChild(opt);
+      });
+    }
+  } catch (error) {
+    console.error('loadReturnSupplierFilter error:', error);
+  }
+}
+
+function openAddReturnModal() {
+  currentReturnId = null;
+  document.getElementById('returnForm').reset();
+  document.getElementById('returnSupplierInfo').classList.add('hidden');
+  document.getElementById('returnItemsSection').classList.add('hidden');
+  document.getElementById('returnItemsSelectBody').innerHTML = '';
+  document.getElementById('returnTotalAmount').textContent = 'Rp 0';
+  document.getElementById('returnFormError').classList.add('hidden');
+  document.getElementById('returnDate').value = new Date().toISOString().split('T')[0];
+  returnPurchaseItems = [];
+
+  loadPurchasesForReturn();
+  document.getElementById('returnModal').style.display = 'flex';
+}
+
+function closeReturnModal() {
+  document.getElementById('returnModal').style.display = 'none';
+}
+
+async function handleReturnPurchaseChange() {
+  const purchaseId = document.getElementById('returnPurchaseId').value;
+
+  if (!purchaseId) {
+    document.getElementById('returnSupplierInfo').classList.add('hidden');
+    document.getElementById('returnItemsSection').classList.add('hidden');
+    returnPurchaseItems = [];
+    return;
+  }
+
+  try {
+    const result = await window.api.supplierReturns.getPurchaseItems(parseInt(purchaseId));
+    if (result.success) {
+      const purchase = result.purchase;
+      returnPurchaseItems = result.items;
+
+      // Show supplier info
+      document.getElementById('returnSupplierName').textContent =
+        purchase.supplier_name_from_db || purchase.supplier_name || 'Tanpa Supplier';
+      document.getElementById('returnPurchaseStatus').textContent =
+        formatPaymentStatus(purchase.payment_status);
+      document.getElementById('returnRemainingDebt').textContent =
+        formatCurrency(purchase.remaining_amount || 0);
+      document.getElementById('returnSupplierInfo').classList.remove('hidden');
+
+      // Render items selection
+      renderReturnItemsSelect(result.items);
+      document.getElementById('returnItemsSection').classList.remove('hidden');
+    } else {
+      showToast(result.message || 'Gagal memuat item pembelian', 'error');
+    }
+  } catch (error) {
+    console.error('handleReturnPurchaseChange error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function renderReturnItemsSelect(items) {
+  const tbody = document.getElementById('returnItemsSelectBody');
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Tidak ada item</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = items.map((item, index) => `
+    <tr>
+      <td>
+        <input type="checkbox" class="return-item-check" data-index="${index}"
+               onchange="handleReturnItemCheck(this)">
+      </td>
+      <td>${escapeHtml(item.product_name)}</td>
+      <td>${item.quantity}</td>
+      <td>${escapeHtml(item.unit || 'pcs')}</td>
+      <td>${formatCurrency(item.purchase_price)}</td>
+      <td>
+        <input type="number" class="return-qty-input" data-index="${index}"
+               min="0.01" max="${item.quantity}" step="0.01"
+               value="${item.quantity}"
+               style="width:80px"
+               oninput="calculateReturnSubtotal(${index})"
+               disabled>
+      </td>
+      <td class="return-subtotal" data-index="${index}">${formatCurrency(0)}</td>
+    </tr>
+  `).join('');
+}
+
+function handleReturnItemCheck(checkbox) {
+  const index = checkbox.dataset.index;
+  const qtyInput = document.querySelector(`.return-qty-input[data-index="${index}"]`);
+  qtyInput.disabled = !checkbox.checked;
+  if (!checkbox.checked) {
+    document.querySelector(`.return-subtotal[data-index="${index}"]`).textContent = formatCurrency(0);
+  } else {
+    calculateReturnSubtotal(index);
+  }
+  updateReturnTotal();
+}
+
+function calculateReturnSubtotal(index) {
+  const item = returnPurchaseItems[index];
+  const qtyInput = document.querySelector(`.return-qty-input[data-index="${index}"]`);
+  const qty = parseFloat(qtyInput.value) || 0;
+  const subtotal = qty * item.purchase_price;
+  document.querySelector(`.return-subtotal[data-index="${index}"]`).textContent = formatCurrency(subtotal);
+  updateReturnTotal();
+}
+
+function updateReturnTotal() {
+  let total = 0;
+  document.querySelectorAll('.return-item-check:checked').forEach(chk => {
+    const index = chk.dataset.index;
+    const item = returnPurchaseItems[index];
+    const qty = parseFloat(document.querySelector(`.return-qty-input[data-index="${index}"]`).value) || 0;
+    total += qty * item.purchase_price;
+  });
+  document.getElementById('returnTotalAmount').textContent = formatCurrency(total);
+}
+
+async function handleReturnFormSubmit(e) {
+  e.preventDefault();
+
+  const errorEl = document.getElementById('returnFormError');
+  errorEl.classList.add('hidden');
+
+  const purchaseId = parseInt(document.getElementById('returnPurchaseId').value);
+  const returnDate = document.getElementById('returnDate').value;
+  const reason = document.getElementById('returnReason').value;
+  const notes = document.getElementById('returnNotes').value;
+
+  if (!purchaseId || !returnDate || !reason) {
+    errorEl.textContent = 'PO, tanggal, dan alasan retur wajib diisi';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  // Collect checked items
+  const checkedItems = [];
+  document.querySelectorAll('.return-item-check:checked').forEach(chk => {
+    const index = parseInt(chk.dataset.index);
+    const item = returnPurchaseItems[index];
+    const qty = parseFloat(document.querySelector(`.return-qty-input[data-index="${index}"]`).value) || 0;
+
+    if (qty <= 0) return;
+    if (qty > item.quantity) {
+      errorEl.textContent = `Qty retur untuk "${item.product_name}" melebihi qty beli`;
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    checkedItems.push({
+      purchase_item_id: item.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: qty,
+      unit: item.unit || 'pcs',
+      purchase_price: item.purchase_price,
+      subtotal: qty * item.purchase_price
+    });
+  });
+
+  if (checkedItems.length === 0) {
+    errorEl.textContent = 'Pilih minimal satu item yang akan diretur';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const result = await window.api.supplierReturns.create({
+      purchase_id: purchaseId,
+      return_date: returnDate,
+      reason,
+      notes,
+      items: checkedItems
+    });
+
+    if (result.success) {
+      closeReturnModal();
+      await loadReturns();
+      showToast(`Retur ${result.returnCode} berhasil disimpan`, 'success');
+    } else {
+      errorEl.textContent = result.message || 'Gagal menyimpan retur';
+      errorEl.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('handleReturnFormSubmit error:', error);
+    errorEl.textContent = 'Terjadi kesalahan saat menyimpan retur';
+    errorEl.classList.remove('hidden');
+  }
+}
+
+async function openDetailReturnModal(id) {
+  currentReturnId = id;
+  try {
+    const result = await window.api.supplierReturns.getById(id);
+    if (!result.success) {
+      showToast(result.message || 'Gagal memuat detail retur', 'error');
+      return;
+    }
+
+    const r = result.return;
+
+    document.getElementById('detailReturnCode').textContent = r.return_code;
+    document.getElementById('detailReturnPurchaseCode').textContent = r.purchase_code || '-';
+    document.getElementById('detailReturnDate').textContent = formatDate(r.return_date);
+    document.getElementById('detailReturnSupplier').textContent = r.supplier_name || '-';
+    document.getElementById('detailReturnReason').textContent = r.reason;
+    document.getElementById('detailReturnStatus').innerHTML = renderReturnStatusBadge(r.status);
+    document.getElementById('detailReturnTotal').textContent = formatCurrency(r.total_return_amount);
+    document.getElementById('detailReturnNotes').textContent = r.notes || '-';
+    document.getElementById('detailReturnUser').textContent = r.user_name || '-';
+
+    const tbody = document.getElementById('detailReturnItemsBody');
+    if (!r.items || r.items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">Tidak ada item</td></tr>';
+    } else {
+      tbody.innerHTML = r.items.map(item => `
+        <tr>
+          <td>${escapeHtml(item.product_name)}</td>
+          <td>${item.quantity}</td>
+          <td>${escapeHtml(item.unit || 'pcs')}</td>
+          <td>${formatCurrency(item.purchase_price)}</td>
+          <td>${formatCurrency(item.subtotal)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Show/hide "Tandai Selesai" button
+    const btnDone = document.getElementById('btnMarkReturnDone');
+    btnDone.style.display = r.status === 'diproses' ? 'inline-block' : 'none';
+
+    document.getElementById('detailReturnModal').style.display = 'flex';
+  } catch (error) {
+    console.error('openDetailReturnModal error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function closeDetailReturnModal() {
+  document.getElementById('detailReturnModal').style.display = 'none';
+  currentReturnId = null;
+}
+
+async function markReturnDone() {
+  if (!currentReturnId) return;
+  try {
+    const result = await window.api.supplierReturns.updateStatus(currentReturnId, 'selesai');
+    if (result.success) {
+      closeDetailReturnModal();
+      await loadReturns();
+      showToast('Status retur diubah menjadi Selesai', 'success');
+    } else {
+      showToast(result.message || 'Gagal mengubah status', 'error');
+    }
+  } catch (error) {
+    console.error('markReturnDone error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function confirmDeleteReturn(id, code) {
+  showConfirm(
+    'Konfirmasi Hapus',
+    `Yakin ingin menghapus retur "${code}"? Stok dan hutang akan dikembalikan.`,
+    async () => {
+      await deleteReturn(id);
+    }
+  );
+}
+
+async function deleteReturn(id) {
+  try {
+    const result = await window.api.supplierReturns.delete(id);
+    if (result.success) {
+      await loadReturns();
+      showToast('Retur berhasil dihapus', 'success');
+    } else {
+      showToast(result.message || 'Gagal menghapus retur', 'error');
+    }
+  } catch (error) {
+    console.error('deleteReturn error:', error);
+    showToast('Terjadi kesalahan', 'error');
+  }
+}
+
+function formatPaymentStatus(status) {
+  const map = { paid: 'Lunas', unpaid: 'Belum Bayar', partial: 'Bayar Sebagian' };
+  return map[status] || status;
 }
