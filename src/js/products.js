@@ -921,8 +921,8 @@ function renderProductUnitsRows(baseUnit) {
             </td>
             <td class="action-buttons">
               ${row.is_default ? '' : `
-                <button class="btn-icon" onclick="editProductUnitRow(${idx})" title="Edit">✏️</button>
-                <button class="btn-icon" onclick="deleteProductUnitRow(${idx})" title="Hapus">🗑️</button>
+                <button type="button" class="btn-icon" onclick="editProductUnitRow(${idx})" title="Edit">✏️</button>
+                <button type="button" class="btn-icon" onclick="deleteProductUnitRow(${idx})" title="Hapus">🗑️</button>
               `}
             </td>
           </tr>
