@@ -173,14 +173,22 @@ async function selectProduct(productId) {
   }
 }
 
-// Cek satuan jual tersedia; jika > 1 tampilkan modal, jika hanya 1 langsung tambah
+// Cek satuan jual tersedia; jika ada default (retail) langsung pakai, jika > 1 tanpa default tampilkan modal
 async function addToCartWithUnitSelect(product) {
   try {
     const result = await window.api.productUnits.getByProduct(product.id);
     const units = result.success ? result.units : [];
 
     if (units.length > 1) {
-      openUnitSelectModal(product, units);
+      // Gunakan unit default (retail) langsung tanpa modal
+      const defaultUnit = units.find(u => u.is_default) || units[0];
+      const u = defaultUnit;
+      addToCart(product, 1, {
+        unit_id: u.unit_id,
+        unit_name: u.unit_name,
+        conversion_qty: u.conversion_qty,
+        selling_price: u.selling_price
+      });
     } else if (units.length === 1) {
       const u = units[0];
       addToCart(product, 1, {
