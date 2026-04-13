@@ -716,6 +716,17 @@ textarea:focus {
   gap: 10px;
 }
 
+.filter-group--with-label {
+  align-items: flex-start;
+}
+
+.filter-group--with-label .form-group .btn {
+  width: 100%;
+  height: 42px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
 .filter-select {
   padding: 10px 15px;
   border: 2px solid #dfe6e9;
@@ -726,6 +737,24 @@ textarea:focus {
 }
 
 .filter-select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.filter-input {
+  padding: 10px 12px;
+  border: 2px solid #dfe6e9;
+  border-radius: 5px;
+  font-size: 14px;
+  background: white;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  height: 42px;
+  box-sizing: border-box;
+}
+
+.filter-input:focus {
   outline: none;
   border-color: #3498db;
 }
@@ -1058,6 +1087,7 @@ textarea:focus {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
   margin-top: 30px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
@@ -3040,8 +3070,84 @@ code {
 .filters-container-wrap { flex-wrap: wrap; gap: 12px; }
 .filter-group-wrap  { flex-wrap: wrap; gap: 10px; }
 .filter-group-right { margin-left: auto; }
-.custom-range:not(.hidden) { display: flex; gap: 8px; align-items: center; }
-.text-separator { color: #7f8c8d; }
+.custom-range:not(.hidden) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f7ff;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.custom-range .filter-input {
+  border: 1.5px solid #b2d4f5;
+  background: #fff;
+  padding: 7px 10px;
+  min-width: 130px;
+}
+
+.custom-range .filter-input:focus {
+  border-color: #2980b9;
+}
+
+.text-separator {
+  color: #3498db;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0 2px;
+}
+
+/* ---- Transactions filter layout ---- */
+.trx-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trx-filter-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.trx-filter-row .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.trx-filter-row .form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #636e72;
+  margin: 0;
+}
+
+.trx-search-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.trx-search-group .filter-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.trx-filter-row .filter-select {
+  height: 42px;
+  box-sizing: border-box;
+}
+
+.trx-filter-row .btn {
+  height: 42px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  padding-top: 0;
+  padding-bottom: 0;
+}
 
 /* ---- Reports — table toolbar ---- */
 .table-title     { font-weight: 600; color: #2c3e50; }

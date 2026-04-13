@@ -34,7 +34,7 @@
       <div id="dashboard-tab" class="tab-content active">
         <!-- Date Range Filter -->
         <div class="filters-container">
-          <div class="filter-group">
+          <div class="filter-group filter-group--with-label">
             <div class="form-group">
               <label>Dari Tanggal</label>
               <input type="date" id="dashboardStartDate" class="filter-input">
@@ -43,9 +43,10 @@
               <label>Sampai Tanggal</label>
               <input type="date" id="dashboardEndDate" class="filter-input">
             </div>
-            <button class="btn btn-primary" id="btnApplyDashboardFilter">
-              🔍 Filter
-            </button>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" id="btnApplyDashboardFilter">🔍 Filter</button>
+            </div>
           </div>
         </div>
 

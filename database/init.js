@@ -198,6 +198,7 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       purchase_code TEXT UNIQUE NOT NULL,
       supplier_name TEXT,
+      supplier_id INTEGER REFERENCES suppliers(id),
       purchase_date DATE NOT NULL,
       total_amount REAL NOT NULL,
       payment_status TEXT DEFAULT 'unpaid',
@@ -245,13 +246,6 @@ async function initDatabase() {
   `;
   run(createSettingsTable);
   console.log('Settings table created successfully');
-
-  try {
-    run('ALTER TABLE purchases ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)');
-    console.log('Migration: supplier_id column added to purchases');
-  } catch (e) {
-    // Column already exists, skip
-  }
 
   // Check if admin user exists
   const adminExists = get('SELECT id FROM users WHERE username = ?', ['admin']);

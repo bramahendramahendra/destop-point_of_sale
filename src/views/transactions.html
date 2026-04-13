@@ -42,8 +42,9 @@
       </div>
 
       <!-- Filters -->
-      <div class="filters-container">
-        <div class="filter-group">
+      <div class="filters-container trx-filters">
+        <!-- Baris 1: Date + Search -->
+        <div class="trx-filter-row">
           <div class="form-group">
             <label>Dari Tanggal</label>
             <input type="date" id="filterStartDate" class="filter-input">
@@ -52,18 +53,13 @@
             <label>Sampai Tanggal</label>
             <input type="date" id="filterEndDate" class="filter-input">
           </div>
+          <div class="form-group trx-search-group">
+            <label>Cari Transaksi</label>
+            <input type="text" id="searchTransaction" placeholder="🔍 Cari kode transaksi..." class="filter-input">
+          </div>
         </div>
-        
-        <div class="search-box">
-          <input 
-            type="text" 
-            id="searchTransaction" 
-            placeholder="🔍 Cari kode transaksi..."
-            class="search-input"
-          >
-        </div>
-
-        <div class="filter-group">
+        <!-- Baris 2: Dropdowns + Button -->
+        <div class="trx-filter-row">
           <select id="filterCashier" class="filter-select">
             <option value="">Semua Kasir</option>
           </select>
@@ -80,9 +76,7 @@
             <option value="completed">Completed</option>
             <option value="void">Void</option>
           </select>
-          <button class="btn btn-primary" id="btnApplyFilter">
-            🔍 Filter
-          </button>
+          <button class="btn btn-primary" id="btnApplyFilter">🔍 Filter</button>
         </div>
       </div>
 
