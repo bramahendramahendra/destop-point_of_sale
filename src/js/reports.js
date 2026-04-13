@@ -119,20 +119,17 @@ async function loadUserDropdowns() {
 function setupFilterHandlers() {
   // Sales period toggle custom range
   document.getElementById('salesPeriod').addEventListener('change', function () {
-    const box = document.getElementById('salesCustomRange');
-    box.style.display = this.value === 'custom' ? 'flex' : 'none';
+    document.getElementById('salesCustomRange').classList.toggle('hidden', this.value !== 'custom');
   });
 
   // P&L period toggle
   document.getElementById('plPeriod').addEventListener('change', function () {
-    const box = document.getElementById('plCustomRange');
-    box.style.display = this.value === 'custom' ? 'flex' : 'none';
+    document.getElementById('plCustomRange').classList.toggle('hidden', this.value !== 'custom');
   });
 
   // Cashier period toggle
   document.getElementById('cashierPeriod').addEventListener('change', function () {
-    const box = document.getElementById('cashierCustomRange');
-    box.style.display = this.value === 'custom' ? 'flex' : 'none';
+    document.getElementById('cashierCustomRange').classList.toggle('hidden', this.value !== 'custom');
   });
 
   // Filter buttons

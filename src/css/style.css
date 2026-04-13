@@ -3040,7 +3040,7 @@ code {
 .filters-container-wrap { flex-wrap: wrap; gap: 12px; }
 .filter-group-wrap  { flex-wrap: wrap; gap: 10px; }
 .filter-group-right { margin-left: auto; }
-.custom-range { display: flex; gap: 8px; align-items: center; }
+.custom-range:not(.hidden) { display: flex; gap: 8px; align-items: center; }
 .text-separator { color: #7f8c8d; }
 
 /* ---- Reports — table toolbar ---- */
