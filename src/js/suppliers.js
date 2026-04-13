@@ -383,43 +383,43 @@ async function openDetailModal(id) {
 
     // Info supplier
     document.getElementById('detailInfoSection').innerHTML = `
-      <h3 style="margin-bottom:12px;">Informasi Supplier</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">KODE SUPPLIER</span>
+      <h3 class="detail-section-title">Informasi Supplier</h3>
+      <div class="detail-info-grid">
+        <div class="detail-item">
+          <span class="detail-field-label">KODE SUPPLIER</span>
           <span><code>${escapeHtml(supplier.supplier_code)}</code></span>
         </div>
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">NAMA</span>
+        <div class="detail-item">
+          <span class="detail-field-label">NAMA</span>
           <span><strong>${escapeHtml(supplier.name)}</strong></span>
         </div>
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">KONTAK PERSON</span>
+        <div class="detail-item">
+          <span class="detail-field-label">KONTAK PERSON</span>
           <span>${escapeHtml(supplier.contact_person || '-')}</span>
         </div>
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">TELEPON</span>
+        <div class="detail-item">
+          <span class="detail-field-label">TELEPON</span>
           <span>${escapeHtml(supplier.phone || '-')}</span>
         </div>
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">EMAIL</span>
+        <div class="detail-item">
+          <span class="detail-field-label">EMAIL</span>
           <span>${escapeHtml(supplier.email || '-')}</span>
         </div>
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">STATUS</span>
+        <div class="detail-item">
+          <span class="detail-field-label">STATUS</span>
           <span>
             <span class="badge ${supplier.is_active ? 'badge-success' : 'badge-danger'}">
               ${supplier.is_active ? 'Aktif' : 'Nonaktif'}
             </span>
           </span>
         </div>
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;grid-column:span 2;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">ALAMAT</span>
+        <div class="detail-item detail-item-full">
+          <span class="detail-field-label">ALAMAT</span>
           <span>${escapeHtml(supplier.address || '-')}</span>
         </div>
         ${supplier.notes ? `
-        <div class="detail-item" style="display:flex;flex-direction:column;gap:4px;grid-column:span 2;">
-          <span style="font-size:12px;color:#7f8c8d;font-weight:600;">KETERANGAN</span>
+        <div class="detail-item detail-item-full">
+          <span class="detail-field-label">KETERANGAN</span>
           <span>${escapeHtml(supplier.notes)}</span>
         </div>` : ''}
       </div>
@@ -427,18 +427,18 @@ async function openDetailModal(id) {
 
     // Ringkasan & hutang
     document.getElementById('detailDebtSection').innerHTML = `
-      <div style="display:flex;gap:15px;flex-wrap:wrap;">
-        <div style="background:#f8f9fa;border-radius:8px;padding:15px 20px;flex:1;min-width:150px;">
-          <div style="font-size:12px;color:#7f8c8d;font-weight:600;margin-bottom:4px;">TOTAL PEMBELIAN</div>
-          <div style="font-size:20px;font-weight:700;color:#2c3e50;">${stats ? stats.total_purchases : 0}x</div>
-          <div style="font-size:13px;color:#555;">${formatCurrency(stats ? stats.total_amount : 0)}</div>
+      <div class="debt-summary-grid">
+        <div class="debt-stat-card">
+          <div class="debt-stat-label">TOTAL PEMBELIAN</div>
+          <div class="debt-stat-value">${stats ? stats.total_purchases : 0}x</div>
+          <div class="debt-stat-sub">${formatCurrency(stats ? stats.total_amount : 0)}</div>
         </div>
-        <div style="background:${total_debt > 0 ? '#fff5f5' : '#f0fff4'};border-radius:8px;padding:15px 20px;flex:1;min-width:150px;border-left:4px solid ${total_debt > 0 ? '#e74c3c' : '#27ae60'};">
-          <div style="font-size:12px;color:#7f8c8d;font-weight:600;margin-bottom:4px;">TOTAL HUTANG BELUM LUNAS</div>
-          <div style="font-size:20px;font-weight:700;color:${total_debt > 0 ? '#e74c3c' : '#27ae60'};">
+        <div class="debt-stat-card ${total_debt > 0 ? 'debt-stat-card--has-debt' : 'debt-stat-card--no-debt'}">
+          <div class="debt-stat-label">TOTAL HUTANG BELUM LUNAS</div>
+          <div class="debt-stat-value ${total_debt > 0 ? 'text-danger' : 'text-success'}">
             ${formatCurrency(total_debt)}
           </div>
-          <div style="font-size:12px;color:#777;">${total_debt > 0 ? 'Masih ada hutang' : 'Semua lunas'}</div>
+          <div class="debt-stat-note">${total_debt > 0 ? 'Masih ada hutang' : 'Semua lunas'}</div>
         </div>
       </div>
     `;
@@ -470,11 +470,11 @@ function renderDetailPurchases(purchases) {
       <td><code>${escapeHtml(p.purchase_code)}</code></td>
       <td>${formatDateOnly(p.purchase_date)}</td>
       <td><strong>${formatCurrency(p.total_amount)}</strong></td>
-      <td><span style="color:#27ae60;">${formatCurrency(p.paid_amount)}</span></td>
+      <td><span class="text-success">${formatCurrency(p.paid_amount)}</span></td>
       <td>
         ${p.remaining_amount > 0
-          ? `<strong style="color:#e74c3c;">${formatCurrency(p.remaining_amount)}</strong>`
-          : '<span style="color:#27ae60;">-</span>'}
+          ? `<strong class="text-danger">${formatCurrency(p.remaining_amount)}</strong>`
+          : '<span class="text-success">-</span>'}
       </td>
       <td>
         <span class="badge ${getPaymentStatusClass(p.payment_status)}">

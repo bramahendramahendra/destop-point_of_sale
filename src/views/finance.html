@@ -305,7 +305,7 @@
             ></textarea>
           </div>
 
-          <div id="openCashError" class="error-message" style="display: none;"></div>
+          <div id="openCashError" class="error-message hidden"></div>
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="btnCancelOpenCash">Batal</button>
@@ -360,7 +360,7 @@
             >
           </div>
 
-          <div class="difference-display" id="differenceDisplay" style="display: none;">
+          <div class="difference-display hidden" id="differenceDisplay">
             <span>Selisih:</span>
             <strong id="differenceAmount">Rp 0</strong>
           </div>
@@ -374,7 +374,7 @@
             ></textarea>
           </div>
 
-          <div id="closeCashError" class="error-message" style="display: none;"></div>
+          <div id="closeCashError" class="error-message hidden"></div>
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="btnCancelCloseCash">Batal</button>
@@ -453,7 +453,7 @@
             <textarea id="expenseNotes" placeholder="Catatan (opsional)" rows="3"></textarea>
           </div>
 
-          <div id="expenseFormError" class="error-message" style="display: none;"></div>
+          <div id="expenseFormError" class="error-message hidden"></div>
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="btnCancelExpense">Batal</button>
@@ -490,8 +490,8 @@
 
             <div class="form-group">
               <label for="supplierSelect">Supplier</label>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <select id="supplierSelect" style="flex:1;">
+              <div class="supplier-select-row">
+                <select id="supplierSelect">
                   <option value="">-- Pilih Supplier (opsional) --</option>
                 </select>
                 <a href="suppliers.html" class="btn btn-secondary btn-sm" title="Kelola Supplier">
@@ -500,7 +500,7 @@
               </div>
               <small class="form-text">
                 Supplier tidak ada di daftar?
-                <a href="suppliers.html" style="color:#3498db;">Tambah supplier baru</a>
+                <a href="suppliers.html" class="text-primary">Tambah supplier baru</a>
               </small>
             </div>
           </div>
@@ -567,7 +567,7 @@
             <textarea id="purchaseNotes" placeholder="Catatan (opsional)" rows="3"></textarea>
           </div>
 
-          <div id="purchaseFormError" class="error-message" style="display: none;"></div>
+          <div id="purchaseFormError" class="error-message hidden"></div>
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="btnCancelPurchase">Batal</button>
@@ -664,7 +664,7 @@
             <input type="number" id="payAmount" placeholder="0" min="0" step="1000" required>
           </div>
 
-          <div id="payPurchaseError" class="error-message" style="display: none;"></div>
+          <div id="payPurchaseError" class="error-message hidden"></div>
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="btnCancelPay">Batal</button>

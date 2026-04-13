@@ -18,25 +18,22 @@
     <main class="main-content">
       <div class="content-header">
         <h1>Dashboard</h1>
-        <span id="dashboardDate" style="font-size:14px;color:#7f8c8d;"></span>
+        <span id="dashboardDate" class="dashboard-date"></span>
       </div>
 
       <!-- Welcome Card -->
       <div class="welcome-card">
         <h2>Selamat datang, <span id="welcomeName">User</span>! 👋</h2>
-        <p style="color:#7f8c8d;margin:0;">
+        <p>
           Berikut ringkasan aktivitas toko Anda hari ini.
         </p>
       </div>
 
       <!-- Stats Cards — Hari Ini -->
-      <div style="margin-bottom:10px;">
-        <h3 style="font-size:14px;color:#7f8c8d;font-weight:600;
-                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
-          📅 Hari Ini
-        </h3>
+      <div class="dashboard-section-header">
+        <h3 class="section-label">📅 Hari Ini</h3>
       </div>
-      <div class="stats-container" style="margin-bottom:24px;">
+      <div class="stats-container stats-container-today">
         <div class="stat-card stat-card-primary">
           <div class="stat-icon">💰</div>
           <div class="stat-content">
@@ -61,7 +58,7 @@
             <p class="stat-label">Produk aktif</p>
           </div>
         </div>
-        <div class="stat-card stat-card-warning" id="statLowStockCard" style="cursor:pointer;">
+        <div class="stat-card stat-card-warning clickable" id="statLowStockCard">
           <div class="stat-icon">⚠️</div>
           <div class="stat-content">
             <h3>Stok Menipis</h3>
@@ -72,13 +69,10 @@
       </div>
 
       <!-- Stats Cards — Bulan Ini -->
-      <div style="margin-bottom:10px;">
-        <h3 style="font-size:14px;color:#7f8c8d;font-weight:600;
-                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
-          📆 Bulan Ini
-        </h3>
+      <div class="dashboard-section-header">
+        <h3 class="section-label">📆 Bulan Ini</h3>
       </div>
-      <div class="stats-container" style="margin-bottom:28px;">
+      <div class="stats-container stats-container-month">
         <div class="stat-card">
           <div class="stat-icon">📈</div>
           <div class="stat-content">
@@ -98,11 +92,8 @@
       </div>
 
       <!-- Quick Actions -->
-      <div style="margin-bottom:10px;">
-        <h3 style="font-size:14px;color:#7f8c8d;font-weight:600;
-                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
-          ⚡ Aksi Cepat
-        </h3>
+      <div class="dashboard-section-header">
+        <h3 class="section-label">⚡ Aksi Cepat</h3>
       </div>
       <div class="quick-actions-grid">
         <a href="kasir.html" class="quick-action-card">

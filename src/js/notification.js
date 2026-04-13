@@ -73,9 +73,9 @@
     `;
 
     toast.innerHTML = `
-      <span style="font-size:18px;flex-shrink:0;">${icon}</span>
-      <span style="flex:1;line-height:1.4;">${escapeHtmlToast(message)}</span>
-      <span style="font-size:16px;opacity:0.8;flex-shrink:0;" class="toast-close">✕</span>
+      <span class="toast-icon">${icon}</span>
+      <span class="toast-body">${escapeHtmlToast(message)}</span>
+      <span class="toast-close">✕</span>
     `;
 
     container.appendChild(toast);

@@ -475,7 +475,7 @@ function displayCashDrawerDetail(cashDrawer) {
           </span>
         </div>
         ${cashDrawer.notes ? `
-        <div class="detail-item" style="grid-column: span 2;">
+        <div class="detail-item detail-item-full">
           <span class="detail-label">Catatan:</span>
           <span>${escapeHtml(cashDrawer.notes)}</span>
         </div>

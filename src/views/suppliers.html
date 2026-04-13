@@ -45,18 +45,18 @@
       </div>
 
       <!-- Summary -->
-      <div class="summary-card" style="display:flex;gap:20px;background:white;padding:15px 20px;border-radius:8px;margin-bottom:20px;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+      <div class="summary-card">
         <div class="summary-item">
           <span>Total Supplier:</span>
           <strong id="statTotal">0</strong>
         </div>
         <div class="summary-item">
           <span>Aktif:</span>
-          <strong id="statActive" style="color:#27ae60;">0</strong>
+          <strong id="statActive" class="text-success">0</strong>
         </div>
         <div class="summary-item">
           <span>Nonaktif:</span>
-          <strong id="statInactive" style="color:#e74c3c;">0</strong>
+          <strong id="statInactive" class="text-danger">0</strong>
         </div>
       </div>
 
@@ -133,7 +133,7 @@
             <textarea id="supplierNotes" rows="2" placeholder="Keterangan tambahan (opsional)"></textarea>
           </div>
 
-          <div id="supplierFormError" class="error-message" style="display:none;"></div>
+          <div id="supplierFormError" class="error-message hidden"></div>
 
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="btnCancelSupplier">Batal</button>
@@ -161,13 +161,13 @@
         </div>
 
         <!-- Ringkasan Hutang -->
-        <div class="detail-section" id="detailDebtSection" style="margin-top:20px;">
+        <div class="detail-section mt-20" id="detailDebtSection">
           <!-- Populated dynamically -->
         </div>
 
         <!-- Riwayat Pembelian -->
-        <div class="detail-section" style="margin-top:20px;">
-          <h3 style="margin-bottom:12px;">Riwayat Pembelian</h3>
+        <div class="detail-section mt-20">
+          <h3 class="detail-section-title">Riwayat Pembelian</h3>
           <div class="table-container">
             <table class="data-table">
               <thead>

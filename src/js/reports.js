@@ -268,7 +268,7 @@ function renderSalesTable() {
       <td><strong>${escapeHtml(t.transaction_code)}</strong></td>
       <td>${escapeHtml(t.kasir_name || '-')}</td>
       <td>${escapeHtml(t.customer_name || '-')}</td>
-      <td style="text-align:center;">${t.item_count || 0} item (${t.total_qty || 0} qty)</td>
+      <td class="td-center">${t.item_count || 0} item (${t.total_qty || 0} qty)</td>
       <td><strong>${formatCurrency(t.total_amount)}</strong></td>
       <td><span class="badge badge-payment">${formatPaymentMethod(t.payment_method)}</span></td>
     </tr>
@@ -379,7 +379,7 @@ function renderExpensePieChart(expenseCategories) {
 
   if (!expenseCategories || !expenseCategories.length) {
     document.getElementById('expensePieLegend').innerHTML
-      = '<p class="text-center text-muted" style="font-size:13px;">Tidak ada data pengeluaran</p>';
+      = '<p class="text-center text-muted text-sm">Tidak ada data pengeluaran</p>';
     return;
   }
 
@@ -415,11 +415,11 @@ function renderExpensePieChart(expenseCategories) {
   // Custom legend
   const total = values.reduce((a, b) => a + b, 0);
   document.getElementById('expensePieLegend').innerHTML = labels.map((label, i) => `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span style="width:12px;height:12px;border-radius:50%;background:${colors[i]};flex-shrink:0;display:inline-block;"></span>
-      <span style="font-size:13px;flex:1;">${escapeHtml(label)}</span>
-      <span style="font-size:13px;font-weight:600;">${formatCurrency(values[i])}</span>
-      <span style="font-size:12px;color:#7f8c8d;">(${total > 0 ? ((values[i]/total)*100).toFixed(1) : 0}%)</span>
+    <div class="legend-item">
+      <span class="legend-dot" style="background:${colors[i]};"></span>
+      <span class="legend-label">${escapeHtml(label)}</span>
+      <span class="legend-value">${formatCurrency(values[i])}</span>
+      <span class="legend-pct">(${total > 0 ? ((values[i]/total)*100).toFixed(1) : 0}%)</span>
     </div>
   `).join('');
 }
@@ -510,14 +510,14 @@ function renderStockTable(products) {
 
     return `
       <tr class="${rowClass}">
-        <td><code style="font-size:12px;">${escapeHtml(p.barcode)}</code></td>
+        <td><code>${escapeHtml(p.barcode)}</code></td>
         <td><strong>${escapeHtml(p.name)}</strong></td>
         <td><span class="badge badge-category">${escapeHtml(p.category_name)}</span></td>
-        <td style="text-align:center;font-weight:700;color:${p.stock_status === 'empty' ? '#e74c3c' : p.stock_status === 'low' ? '#f39c12' : '#27ae60'};">
+        <td class="td-center-bold ${p.stock_status === 'empty' ? 'text-danger' : p.stock_status === 'low' ? 'text-warning' : 'text-success'}">
           ${p.stock} ${escapeHtml(p.unit || '')}
         </td>
-        <td style="text-align:center;">${p.min_stock}</td>
-        <td style="text-align:center;"><span class="badge ${statusClass}">${statusText}</span></td>
+        <td class="td-center">${p.min_stock}</td>
+        <td class="td-center"><span class="badge ${statusClass}">${statusText}</span></td>
         <td>${formatCurrency(p.purchase_price)}</td>
         <td><strong>${formatCurrency(p.inventory_value)}</strong></td>
       </tr>
@@ -575,7 +575,7 @@ function renderCashierCards(stats) {
 
   if (!filtered.length) {
     container.innerHTML = `
-      <div class="empty-state" style="grid-column:1/-1;">
+      <div class="empty-state empty-state-full">
         <div class="empty-icon">👤</div>
         <p>Tidak ada data transaksi untuk periode ini</p>
       </div>`;
@@ -661,17 +661,17 @@ function renderCashierRankTable(stats) {
   const BADGES = ['🥇', '🥈', '🥉'];
 
   tbody.innerHTML = sorted.map((s, i) => `
-    <tr ${i < 3 ? 'style="background:' + ['#fffde7','#f5f5f5','#fbe9e7'][i] + '"' : ''}>
-      <td style="text-align:center;font-size:20px;">${BADGES[i] || (i + 1)}</td>
+    <tr class="${i < 3 ? ['rank-1','rank-2','rank-3'][i] : ''}">
+      <td class="rank-badge-cell">${BADGES[i] || (i + 1)}</td>
       <td><strong>${escapeHtml(s.full_name)}</strong><br>
-          <small style="color:#7f8c8d;">${escapeHtml(s.username)}</small></td>
-      <td style="text-align:center;font-weight:700;">${s.total_transactions.toLocaleString('id-ID')}</td>
+          <small class="text-muted">${escapeHtml(s.username)}</small></td>
+      <td class="td-center-bold">${s.total_transactions.toLocaleString('id-ID')}</td>
       <td><strong class="text-primary">${formatCurrency(s.total_sales)}</strong></td>
       <td>${formatCurrency(s.avg_per_transaction)}</td>
-      <td style="text-align:center;">
-        ${i === 0 ? '<span class="badge" style="background:#ffd700;color:#333;">Gold 🏆</span>'
-          : i === 1 ? '<span class="badge" style="background:#c0c0c0;color:#333;">Silver</span>'
-          : i === 2 ? '<span class="badge" style="background:#cd7f32;color:#fff;">Bronze</span>'
+      <td class="td-center">
+        ${i === 0 ? '<span class="badge badge-gold">Gold 🏆</span>'
+          : i === 1 ? '<span class="badge badge-silver">Silver</span>'
+          : i === 2 ? '<span class="badge badge-bronze">Bronze</span>'
           : '<span class="badge badge-secondary">#' + (i + 1) + '</span>'}
       </td>
     </tr>

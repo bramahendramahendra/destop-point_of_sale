@@ -670,7 +670,7 @@ function displayCashDrawerDetail(cashDrawer) {
             `).join('')}
           </tbody>
         </table>
-        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+        <div class="expense-summary-note">
           <strong>Total Pengeluaran: ${formatCurrency(totalExpenses)}</strong>
         </div>
       ` : '<p class="text-center">Tidak ada pengeluaran</p>'}
@@ -1078,7 +1078,7 @@ function renderPurchasesTable(purchases) {
       <td>${formatDateOnly(purchase.purchase_date)}</td>
       <td>
         ${purchase.supplier_id
-          ? `<a href="suppliers.html" style="color:#3498db;text-decoration:none;font-weight:600;"
+          ? `<a href="suppliers.html" class="supplier-link"
                onclick="sessionStorage.setItem('highlight_supplier_id','${purchase.supplier_id}');return true;">
                🏭 ${escapeHtml(purchase.supplier_name || '-')}
              </a>`

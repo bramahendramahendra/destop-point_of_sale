@@ -38,8 +38,8 @@
       <div id="sales-tab" class="tab-content active">
 
         <!-- Filters -->
-        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
-          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+        <div class="filters-container filters-container-wrap">
+          <div class="filter-group filter-group-wrap">
             <select id="salesPeriod" class="filter-select">
               <option value="today">Hari Ini</option>
               <option value="yesterday">Kemarin</option>
@@ -48,9 +48,9 @@
               <option value="this_month">Bulan Ini</option>
               <option value="custom">Custom Range</option>
             </select>
-            <div id="salesCustomRange" style="display:none;gap:8px;display:none;align-items:center;">
+            <div id="salesCustomRange" class="custom-range hidden">
               <input type="date" id="salesStartDate" class="filter-input">
-              <span style="color:#7f8c8d;">s/d</span>
+              <span class="text-separator">s/d</span>
               <input type="date" id="salesEndDate" class="filter-input">
             </div>
             <select id="salesUserFilter" class="filter-select">
@@ -66,7 +66,7 @@
             </select>
             <button class="btn btn-primary" id="btnFilterSales">🔍 Filter</button>
           </div>
-          <div class="filter-group" style="margin-left:auto;">
+          <div class="filter-group filter-group-right">
             <button class="btn btn-secondary" id="btnExportSalesPDF">📄 Export PDF</button>
             <button class="btn btn-secondary" id="btnExportSalesExcel">📊 Export Excel</button>
             <button class="btn btn-secondary" id="btnPrintSales">🖨️ Print</button>
@@ -120,10 +120,10 @@
         </div>
 
         <!-- Transactions Table -->
-        <div class="table-container" style="margin-top:20px;">
+        <div class="table-container mt-20">
           <div class="table-toolbar">
-            <span style="font-weight:600;color:#2c3e50;">Detail Transaksi</span>
-            <span id="salesTableInfo" style="font-size:13px;color:#7f8c8d;"></span>
+            <span class="table-title">Detail Transaksi</span>
+            <span id="salesTableInfo" class="table-info"></span>
           </div>
           <table class="data-table" id="salesTable">
             <thead>
@@ -144,9 +144,9 @@
         </div>
 
         <!-- Pagination -->
-        <div class="pagination-container" id="salesPagination" style="display:none;">
+        <div class="pagination-container hidden" id="salesPagination">
           <button class="btn btn-secondary btn-sm" id="salesPrevPage">← Prev</button>
-          <span id="salesPageInfo" style="font-size:14px;color:#2c3e50;"></span>
+          <span id="salesPageInfo" class="page-info-text"></span>
           <button class="btn btn-secondary btn-sm" id="salesNextPage">Next →</button>
         </div>
       </div>
@@ -157,8 +157,8 @@
       <div id="profit-loss-tab" class="tab-content">
 
         <!-- Filters -->
-        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
-          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+        <div class="filters-container filters-container-wrap">
+          <div class="filter-group filter-group-wrap">
             <select id="plPeriod" class="filter-select">
               <option value="today">Hari Ini</option>
               <option value="yesterday">Kemarin</option>
@@ -167,14 +167,14 @@
               <option value="this_month">Bulan Ini</option>
               <option value="custom">Custom Range</option>
             </select>
-            <div id="plCustomRange" style="display:none;gap:8px;align-items:center;">
+            <div id="plCustomRange" class="custom-range hidden">
               <input type="date" id="plStartDate" class="filter-input">
-              <span style="color:#7f8c8d;">s/d</span>
+              <span class="text-separator">s/d</span>
               <input type="date" id="plEndDate" class="filter-input">
             </div>
             <button class="btn btn-primary" id="btnFilterPL">🔍 Filter</button>
           </div>
-          <div class="filter-group" style="margin-left:auto;">
+          <div class="filter-group filter-group-right">
             <button class="btn btn-secondary" id="btnExportPLPDF">📄 Export PDF</button>
           </div>
         </div>
@@ -224,13 +224,13 @@
         </div>
 
         <!-- Breakdown -->
-        <div class="charts-container" style="margin-top:20px;">
+        <div class="charts-container mt-20">
           <!-- Sales by Category Table -->
           <div class="chart-card">
             <div class="chart-card-header">
               <h3>📦 Penjualan per Kategori</h3>
             </div>
-            <div class="table-container" style="box-shadow:none;">
+            <div class="table-container table-container-flat">
               <table class="data-table" id="plCategoryTable">
                 <thead>
                   <tr>
@@ -253,10 +253,10 @@
             <div class="chart-card-header">
               <h3>🍩 Pengeluaran per Kategori</h3>
             </div>
-            <div class="chart-wrapper" style="max-height:300px;">
+            <div class="chart-wrapper chart-wrapper-sm">
               <canvas id="expensePieChart"></canvas>
             </div>
-            <div id="expensePieLegend" style="margin-top:12px;padding:0 16px 16px;"></div>
+            <div id="expensePieLegend" class="chart-legend"></div>
           </div>
         </div>
       </div>
@@ -267,8 +267,8 @@
       <div id="stock-tab" class="tab-content">
 
         <!-- Filters -->
-        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
-          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+        <div class="filters-container filters-container-wrap">
+          <div class="filter-group filter-group-wrap">
             <select id="stockCategoryFilter" class="filter-select">
               <option value="">Semua Kategori</option>
             </select>
@@ -280,7 +280,7 @@
             </select>
             <button class="btn btn-primary" id="btnFilterStock">🔍 Filter</button>
           </div>
-          <div class="filter-group" style="margin-left:auto;">
+          <div class="filter-group filter-group-right">
             <button class="btn btn-secondary" id="btnExportStockExcel">📊 Export Excel</button>
           </div>
         </div>
@@ -322,16 +322,16 @@
         </div>
 
         <!-- Low Stock Alert -->
-        <div id="stockAlertBox" class="alert-box alert-warning" style="display:none;">
+        <div id="stockAlertBox" class="alert-box alert-warning hidden">
           <strong>⚠️ Perhatian!</strong>
           <span id="stockAlertText"></span>
         </div>
 
         <!-- Products Table -->
-        <div class="table-container" style="margin-top:20px;">
+        <div class="table-container mt-20">
           <div class="table-toolbar">
-            <span style="font-weight:600;color:#2c3e50;">Data Stok Produk</span>
-            <span id="stockTableInfo" style="font-size:13px;color:#7f8c8d;"></span>
+            <span class="table-title">Data Stok Produk</span>
+            <span id="stockTableInfo" class="table-info"></span>
           </div>
           <table class="data-table" id="stockTable">
             <thead>
@@ -339,9 +339,9 @@
                 <th>Barcode</th>
                 <th>Nama Produk</th>
                 <th>Kategori</th>
-                <th style="text-align:center;">Stok</th>
-                <th style="text-align:center;">Min Stok</th>
-                <th style="text-align:center;">Status</th>
+                <th class="th-center">Stok</th>
+                <th class="th-center">Min Stok</th>
+                <th class="th-center">Status</th>
                 <th>Harga Beli</th>
                 <th>Nilai Stok</th>
               </tr>
@@ -359,8 +359,8 @@
       <div id="cashier-tab" class="tab-content">
 
         <!-- Filters -->
-        <div class="filters-container" style="flex-wrap:wrap;gap:12px;">
-          <div class="filter-group" style="flex-wrap:wrap;gap:10px;">
+        <div class="filters-container filters-container-wrap">
+          <div class="filter-group filter-group-wrap">
             <select id="cashierPeriod" class="filter-select">
               <option value="today">Hari Ini</option>
               <option value="yesterday">Kemarin</option>
@@ -369,9 +369,9 @@
               <option value="this_month">Bulan Ini</option>
               <option value="custom">Custom Range</option>
             </select>
-            <div id="cashierCustomRange" style="display:none;gap:8px;align-items:center;">
+            <div id="cashierCustomRange" class="custom-range hidden">
               <input type="date" id="cashierStartDate" class="filter-input">
-              <span style="color:#7f8c8d;">s/d</span>
+              <span class="text-separator">s/d</span>
               <input type="date" id="cashierEndDate" class="filter-input">
             </div>
             <select id="cashierUserFilter" class="filter-select">
@@ -379,7 +379,7 @@
             </select>
             <button class="btn btn-primary" id="btnFilterCashier">🔍 Filter</button>
           </div>
-          <div class="filter-group" style="margin-left:auto;">
+          <div class="filter-group filter-group-right">
             <button class="btn btn-secondary" id="btnExportCashierPDF">📄 Export PDF</button>
           </div>
         </div>
@@ -393,7 +393,7 @@
         </div>
 
         <!-- Bar Chart -->
-        <div class="chart-card" style="margin-top:20px;">
+        <div class="chart-card mt-20">
           <div class="chart-card-header">
             <h3>📊 Performa Kasir</h3>
           </div>
@@ -403,19 +403,19 @@
         </div>
 
         <!-- Ranking Table -->
-        <div class="table-container" style="margin-top:20px;">
+        <div class="table-container mt-20">
           <div class="table-toolbar">
-            <span style="font-weight:600;color:#2c3e50;">🏆 Ranking Kasir</span>
+            <span class="table-title">🏆 Ranking Kasir</span>
           </div>
           <table class="data-table" id="cashierRankTable">
             <thead>
               <tr>
-                <th style="text-align:center;">Rank</th>
+                <th class="th-center">Rank</th>
                 <th>Nama Kasir</th>
-                <th style="text-align:center;">Transaksi</th>
+                <th class="th-center">Transaksi</th>
                 <th>Total Penjualan</th>
                 <th>Rata-rata</th>
-                <th style="text-align:center;">Badge</th>
+                <th class="th-center">Badge</th>
               </tr>
             </thead>
             <tbody id="cashierRankBody">
@@ -429,7 +429,7 @@
   </div>
 
   <!-- Loading Overlay -->
-  <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+  <div id="loadingOverlay" class="loading-overlay hidden">
     <div class="loading-spinner-box">
       <div class="spinner"></div>
       <p id="loadingText">Memuat data...</p>

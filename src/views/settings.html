@@ -18,7 +18,7 @@
     <main class="main-content">
       <div class="content-header">
         <h1>⚙️ Pengaturan</h1>
-        <div style="display:flex;gap:10px;">
+        <div class="header-actions">
           <button class="btn btn-danger btn-sm" id="btnResetSettings">🔄 Reset Default</button>
           <button class="btn btn-primary" id="btnSaveSettings">💾 Simpan Pengaturan</button>
         </div>
@@ -66,13 +66,12 @@
                   <span class="logo-placeholder">🏪</span>
                 </div>
                 <div class="logo-upload-controls">
-                  <label class="btn btn-secondary btn-sm" for="logoFileInput" style="cursor:pointer;">
+                  <label class="btn btn-secondary btn-sm" for="logoFileInput">
                     📁 Pilih Gambar
                   </label>
-                  <input type="file" id="logoFileInput" accept="image/*"
-                    style="display:none;">
+                  <input type="file" id="logoFileInput" accept="image/*" class="hidden">
                   <button class="btn btn-danger btn-sm" id="btnRemoveLogo">🗑️ Hapus Logo</button>
-                  <p style="font-size:12px;color:#7f8c8d;margin-top:6px;">
+                  <p class="form-text">
                     Format: JPG, PNG, GIF. Maks 500KB. Digunakan di struk.
                   </p>
                 </div>
@@ -102,17 +101,17 @@
                 </div>
               </label>
             </div>
-            <div class="form-group" id="taxPercentGroup" style="display:none;">
+            <div class="form-group hidden" id="taxPercentGroup">
               <label class="form-label">Persentase Pajak (%)</label>
-              <div style="display:flex;align-items:center;gap:12px;">
-                <input type="number" id="taxPercent" class="form-control"
-                  style="max-width:120px;" placeholder="0" min="0" max="100" step="0.1">
-                <span style="color:#7f8c8d;font-size:14px;">
+              <div class="input-with-hint">
+                <input type="number" id="taxPercent" class="form-control input-sm"
+                  placeholder="0" min="0" max="100" step="0.1">
+                <span class="input-hint">
                   Contoh: 11 = PPN 11%
                 </span>
               </div>
             </div>
-            <div class="info-box" id="taxInfoBox" style="display:none;">
+            <div class="info-box hidden" id="taxInfoBox">
               <span>ℹ️</span>
               Pajak akan otomatis dihitung di halaman Kasir saat membuat transaksi baru.
             </div>
@@ -133,7 +132,7 @@
               <textarea id="receiptFooter" class="form-control" rows="3"
                 placeholder="Pesan yang tampil di bawah struk..."
                 maxlength="255"></textarea>
-              <small style="color:#7f8c8d;">Contoh: Terima kasih atas kunjungan Anda</small>
+              <small class="form-text">Contoh: Terima kasih atas kunjungan Anda</small>
             </div>
 
             <!-- Receipt Preview -->
@@ -141,26 +140,25 @@
               <label class="form-label">Preview Struk</label>
               <div class="receipt-preview">
                 <div class="receipt-preview-header">
-                  <div id="previewStoreName" style="font-weight:700;font-size:15px;">TOKO RETAIL</div>
-                  <div id="previewStoreAddress" style="font-size:11px;color:#555;">Jl. Contoh No. 123</div>
-                  <div id="previewStorePhone" style="font-size:11px;color:#555;">021-12345678</div>
+                  <div id="previewStoreName" class="receipt-preview-store-name">TOKO RETAIL</div>
+                  <div id="previewStoreAddress" class="receipt-preview-text">Jl. Contoh No. 123</div>
+                  <div id="previewStorePhone" class="receipt-preview-text">021-12345678</div>
                 </div>
-                <div style="border-top:1px dashed #ccc;margin:8px 0;"></div>
-                <div style="font-size:11px;color:#555;">
-                  <div style="display:flex;justify-content:space-between;">
+                <div class="receipt-divider-dashed"></div>
+                <div class="receipt-preview-text">
+                  <div class="receipt-preview-row">
                     <span>Produk A × 2</span><span>Rp 20.000</span>
                   </div>
-                  <div style="display:flex;justify-content:space-between;">
+                  <div class="receipt-preview-row">
                     <span>Produk B × 1</span><span>Rp 15.000</span>
                   </div>
                 </div>
-                <div style="border-top:1px dashed #ccc;margin:8px 0;"></div>
-                <div style="display:flex;justify-content:space-between;font-weight:700;font-size:12px;">
+                <div class="receipt-divider-dashed"></div>
+                <div class="receipt-preview-total">
                   <span>TOTAL</span><span>Rp 35.000</span>
                 </div>
-                <div style="border-top:1px dashed #ccc;margin:8px 0;"></div>
-                <div id="previewFooter"
-                  style="font-size:11px;color:#555;text-align:center;white-space:pre-wrap;word-break:break-word;">
+                <div class="receipt-divider-dashed"></div>
+                <div id="previewFooter" class="receipt-preview-footer">
                   Terima kasih atas kunjungan Anda
                 </div>
               </div>
@@ -193,22 +191,22 @@
 
             <div class="form-group" id="backupDaysGroup">
               <label class="form-label">Simpan Backup Selama (hari)</label>
-              <div style="display:flex;align-items:center;gap:12px;">
-                <input type="number" id="backupDays" class="form-control"
-                  style="max-width:100px;" value="7" min="1" max="365">
-                <span style="color:#7f8c8d;font-size:14px;">hari</span>
+              <div class="input-with-hint">
+                <input type="number" id="backupDays" class="form-control input-xs"
+                  value="7" min="1" max="365">
+                <span class="input-hint">hari</span>
               </div>
-              <small style="color:#7f8c8d;">
+              <small class="form-text">
                 Backup lebih lama dari nilai ini akan otomatis dihapus.
               </small>
             </div>
 
-            <div style="border-top:1px solid #ecf0f1;padding-top:20px;margin-top:10px;">
+            <div class="section-divider">
               <div class="backup-actions">
                 <div class="backup-action-item">
                   <div>
                     <strong>Backup Manual</strong>
-                    <p style="color:#7f8c8d;font-size:13px;margin:2px 0 0;">
+                    <p class="backup-desc">
                       Simpan backup database ke lokasi pilihan Anda
                     </p>
                   </div>
@@ -220,9 +218,9 @@
                 <div class="backup-action-item">
                   <div>
                     <strong>Restore Database</strong>
-                    <p style="color:#7f8c8d;font-size:13px;margin:2px 0 0;">
-                      Pulihkan database dari file backup. 
-                      <strong style="color:#e74c3c;">Aplikasi akan restart!</strong>
+                    <p class="backup-desc">
+                      Pulihkan database dari file backup.
+                      <strong class="text-danger">Aplikasi akan restart!</strong>
                     </p>
                   </div>
                   <button class="btn btn-danger" id="btnRestoreBackup">
@@ -233,7 +231,7 @@
             </div>
 
             <!-- Backup status -->
-            <div id="backupStatusBox" class="info-box" style="display:none;margin-top:15px;">
+            <div id="backupStatusBox" class="info-box hidden mt-20">
               <span id="backupStatusText"></span>
             </div>
 
@@ -272,10 +270,8 @@
               </div>
             </div>
 
-            <div style="margin-top:20px;">
-              <p style="font-size:13px;color:#7f8c8d;margin-bottom:12px;">
-                Keyboard Shortcuts:
-              </p>
+            <div class="shortcuts-section">
+              <p class="shortcuts-label">Keyboard Shortcuts:</p>
               <div class="shortcuts-grid">
                 <div class="shortcut-item"><kbd>Ctrl+N</kbd> Kasir</div>
                 <div class="shortcut-item"><kbd>Ctrl+P</kbd> Produk</div>
@@ -295,7 +291,7 @@
   </div>
 
   <!-- Loading Overlay -->
-  <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+  <div id="loadingOverlay" class="loading-overlay hidden">
     <div class="loading-spinner-box">
       <div class="spinner"></div>
       <p id="loadingText">Menyimpan pengaturan...</p>
@@ -303,8 +299,8 @@
   </div>
 
   <!-- Confirm Modal -->
-  <div id="confirmModal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width:420px;">
+  <div id="confirmModal" class="modal hidden">
+    <div class="modal-content modal-small">
       <div class="modal-header">
         <h3 id="confirmModalTitle">Konfirmasi</h3>
       </div>

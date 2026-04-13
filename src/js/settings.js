@@ -199,7 +199,7 @@ function handleLogoUpload(e) {
 
 function showLogoPreview(base64) {
   const preview = document.getElementById('logoPreview');
-  preview.innerHTML = `<img src="${base64}" alt="Logo" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;">`;
+  preview.innerHTML = `<img src="${base64}" alt="Logo" class="logo-img">`;
 }
 
 function removeLogo() {
