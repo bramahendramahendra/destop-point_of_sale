@@ -633,8 +633,8 @@ ipcMain.handle('products:create', async (event, productData) => {
       return { success: false, message: 'Barcode sudah digunakan' };
     }
 
-    const result = dbModule.run(
-      `INSERT INTO products (barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit, is_active) 
+    dbModule.run(
+      `INSERT INTO products (barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit, is_active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         productData.barcode,
@@ -648,8 +648,9 @@ ipcMain.handle('products:create', async (event, productData) => {
       ]
     );
 
+    const inserted = dbModule.get('SELECT id FROM products WHERE barcode = ?', [productData.barcode]);
     console.log('Product created successfully:', productData.name);
-    return { success: true, productId: result.lastInsertRowid };
+    return { success: true, productId: inserted ? inserted.id : null };
 
   } catch (error) {
     console.error('Create product error:', error);
@@ -2342,12 +2343,6 @@ ipcMain.handle('supplierReturns:delete', async (event, id) => {
     // Restore remaining_amount on purchase
     const purchase = dbModule.get('SELECT * FROM purchases WHERE id = ?', [ret.purchase_id]);
     if (purchase) {
-      const newRemaining = (purchase.remaining_amount || 0) + ret.total_return_amount;
-      const cap = Math.min(newRemaining, purchase.total_amount);
-      let newStatus = 'partial';
-      if (cap <= 0) newStatus = 'unpaid';
-      else if (cap >= purchase.total_amount) newStatus = purchase.paid_amount > 0 ? 'partial' : 'unpaid';
-      // recalculate properly
       const paid = purchase.paid_amount || 0;
       const remaining2 = purchase.total_amount - paid;
       let finalStatus = 'partial';
