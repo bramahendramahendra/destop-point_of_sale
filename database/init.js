@@ -538,28 +538,28 @@ async function initDatabase() {
   }
 
   // Check if categories exist
-  const categoriesExist = get('SELECT id FROM categories LIMIT 1');
+  // const categoriesExist = get('SELECT id FROM categories LIMIT 1');
 
-  if (!categoriesExist) {
-    console.log('Creating sample categories...');
+  // if (!categoriesExist) {
+  //   console.log('Creating sample categories...');
 
-    const categories = [
-      ['Makanan', 'Produk makanan ringan dan berat'],
-      ['Minuman', 'Berbagai jenis minuman'],
-      ['Snack', 'Camilan dan makanan ringan'],
-      ['Kebutuhan Rumah', 'Peralatan dan kebutuhan rumah tangga'],
-      ['Lainnya', 'Produk lain-lain']
-    ];
+  //   const categories = [
+  //     ['Makanan', 'Produk makanan ringan dan berat'],
+  //     ['Minuman', 'Berbagai jenis minuman'],
+  //     ['Snack', 'Camilan dan makanan ringan'],
+  //     ['Kebutuhan Rumah', 'Peralatan dan kebutuhan rumah tangga'],
+  //     ['Lainnya', 'Produk lain-lain']
+  //   ];
 
-    categories.forEach(([name, description]) => {
-      run(
-        'INSERT INTO categories (name, description) VALUES (?, ?)',
-        [name, description]
-      );
-    });
+  //   categories.forEach(([name, description]) => {
+  //     run(
+  //       'INSERT INTO categories (name, description) VALUES (?, ?)',
+  //       [name, description]
+  //     );
+  //   });
 
-    console.log('Sample categories created successfully');
-  }
+  //   console.log('Sample categories created successfully');
+  // }
 
   // Check if products exist
   // const productsExist = get('SELECT id FROM products LIMIT 1');
