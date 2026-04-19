@@ -798,20 +798,40 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
       change_amount: transactionData.change_amount || 0,
       customer_name: transactionData.customer_name || '',
       notes: transactionData.notes || '',
-      status: 'completed'
+      status: 'completed',
+      customer_id: transactionData.customer_id || null,
+      is_credit: transactionData.is_credit ? 1 : 0
     };
 
     console.log('Transaction data prepared:', txData);
 
+    // Validasi kredit limit sebelum insert
+    if (txData.is_credit && txData.customer_id) {
+      const customer = dbModule.get('SELECT * FROM customers WHERE id = ? AND is_active = 1', [txData.customer_id]);
+      if (!customer) {
+        return { success: false, message: 'Pelanggan tidak ditemukan atau tidak aktif' };
+      }
+      if (customer.credit_limit > 0) {
+        const outstanding = dbModule.get(
+          'SELECT COALESCE(SUM(remaining_amount),0) as total FROM receivables WHERE customer_id = ? AND status != ?',
+          [txData.customer_id, 'paid']
+        );
+        const currentOutstanding = outstanding ? outstanding.total : 0;
+        if (currentOutstanding + txData.total_amount > customer.credit_limit) {
+          return { success: false, message: `Batas kredit terlampaui. Sisa limit: ${(customer.credit_limit - currentOutstanding).toLocaleString('id-ID')}` };
+        }
+      }
+    }
+
     // 1. Insert transaction
     dbModule.run(
       `INSERT INTO transactions (
-        transaction_code, user_id, transaction_date, subtotal, 
-        discount_type, discount_value, discount_amount, 
-        tax_percent, tax_amount, total_amount, 
-        payment_method, payment_amount, change_amount, 
-        customer_name, notes, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        transaction_code, user_id, transaction_date, subtotal,
+        discount_type, discount_value, discount_amount,
+        tax_percent, tax_amount, total_amount,
+        payment_method, payment_amount, change_amount,
+        customer_name, notes, status, customer_id, is_credit
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         txData.transaction_code,
         txData.user_id,
@@ -828,7 +848,9 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
         txData.change_amount,
         txData.customer_name,
         txData.notes,
-        txData.status
+        txData.status,
+        txData.customer_id,
+        txData.is_credit
       ]
     );
 
@@ -910,6 +932,15 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
       );
 
       console.log('Item processed successfully:', item.product_name);
+    }
+
+    // Jika transaksi kredit, buat record piutang
+    if (txData.is_credit && txData.customer_id) {
+      dbModule.run(
+        `INSERT INTO receivables (transaction_id, customer_id, total_amount, paid_amount, remaining_amount, status)
+         VALUES (?, ?, ?, 0, ?, 'unpaid')`,
+        [transactionId, txData.customer_id, txData.total_amount, txData.total_amount]
+      );
     }
 
     console.log('Transaction created successfully:', transactionData.transaction_code);
@@ -2504,6 +2535,39 @@ ipcMain.handle('productUnits:delete', async (event, id) => {
 });
 
 // ============================================
+// PRODUCT PRICES (MULTI-HARGA / GROSIR) IPC HANDLERS
+// ============================================
+
+ipcMain.handle('productPrices:getByProduct', async (event, productId) => {
+  try {
+    const prices = dbModule.all(
+      `SELECT * FROM product_prices WHERE product_id = ? ORDER BY min_qty ASC`,
+      [productId]
+    );
+    return { success: true, prices };
+  } catch (error) {
+    console.error('productPrices:getByProduct error:', error);
+    return { success: false, message: 'Gagal memuat harga produk' };
+  }
+});
+
+ipcMain.handle('productPrices:save', async (event, productId, prices) => {
+  try {
+    dbModule.run('DELETE FROM product_prices WHERE product_id = ?', [productId]);
+    for (const p of prices) {
+      dbModule.run(
+        `INSERT INTO product_prices (product_id, tier_name, min_qty, price) VALUES (?, ?, ?, ?)`,
+        [productId, p.tier_name, p.min_qty, p.price]
+      );
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('productPrices:save error:', error);
+    return { success: false, message: 'Gagal menyimpan harga produk' };
+  }
+});
+
+// ============================================
 // FINANCE DASHBOARD IPC HANDLERS
 // ============================================
 
@@ -3203,5 +3267,247 @@ ipcMain.handle('dashboard:getStats', async () => {
   } catch (error) {
     console.error('dashboard:getStats error:', error);
     return { success: false, message: 'Gagal memuat statistik dashboard' };
+  }
+});
+
+// ============================================
+// CUSTOMERS IPC HANDLERS
+// ============================================
+
+ipcMain.handle('customers:getAll', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT c.*,
+        COALESCE((SELECT SUM(r.remaining_amount) FROM receivables r WHERE r.customer_id = c.id AND r.status != 'paid'), 0) as outstanding
+      FROM customers c
+      WHERE 1=1
+    `;
+    const params = [];
+    if (filters.search) {
+      sql += ' AND (c.name LIKE ? OR c.phone LIKE ? OR c.customer_code LIKE ?)';
+      params.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`);
+    }
+    if (filters.is_active !== undefined && filters.is_active !== '') {
+      sql += ' AND c.is_active = ?';
+      params.push(filters.is_active);
+    }
+    sql += ' ORDER BY c.name';
+    const customers = dbModule.all(sql, params);
+    return { success: true, customers };
+  } catch (error) {
+    console.error('customers:getAll error:', error);
+    return { success: false, message: 'Gagal memuat data pelanggan' };
+  }
+});
+
+ipcMain.handle('customers:getById', async (event, id) => {
+  try {
+    const customer = dbModule.get(`
+      SELECT c.*,
+        COALESCE((SELECT SUM(r.remaining_amount) FROM receivables r WHERE r.customer_id = c.id AND r.status != 'paid'), 0) as outstanding
+      FROM customers c WHERE c.id = ?
+    `, [id]);
+    if (!customer) return { success: false, message: 'Pelanggan tidak ditemukan' };
+    return { success: true, customer };
+  } catch (error) {
+    console.error('customers:getById error:', error);
+    return { success: false, message: 'Gagal memuat data pelanggan' };
+  }
+});
+
+ipcMain.handle('customers:getActiveList', async (event) => {
+  try {
+    const customers = dbModule.all(
+      `SELECT c.id, c.name, c.customer_code, c.phone, c.credit_limit,
+        COALESCE((SELECT SUM(r.remaining_amount) FROM receivables r WHERE r.customer_id = c.id AND r.status != 'paid'), 0) as outstanding
+       FROM customers c WHERE c.is_active = 1 ORDER BY c.name`
+    );
+    return { success: true, customers };
+  } catch (error) {
+    console.error('customers:getActiveList error:', error);
+    return { success: false, message: 'Gagal memuat daftar pelanggan' };
+  }
+});
+
+ipcMain.handle('customers:create', async (event, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM customers WHERE customer_code = ?', [data.customer_code]);
+    if (existing) return { success: false, message: 'Kode pelanggan sudah digunakan' };
+    dbModule.run(
+      `INSERT INTO customers (customer_code, name, phone, address, credit_limit, is_active, notes)
+       VALUES (?, ?, ?, ?, ?, 1, ?)`,
+      [data.customer_code, data.name, data.phone || '', data.address || '', data.credit_limit || 0, data.notes || '']
+    );
+    const inserted = dbModule.get('SELECT id FROM customers WHERE customer_code = ?', [data.customer_code]);
+    return { success: true, customerId: inserted ? inserted.id : null };
+  } catch (error) {
+    console.error('customers:create error:', error);
+    return { success: false, message: 'Gagal menambahkan pelanggan' };
+  }
+});
+
+ipcMain.handle('customers:update', async (event, id, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM customers WHERE customer_code = ? AND id != ?', [data.customer_code, id]);
+    if (existing) return { success: false, message: 'Kode pelanggan sudah digunakan' };
+    dbModule.run(
+      `UPDATE customers SET customer_code=?, name=?, phone=?, address=?, credit_limit=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [data.customer_code, data.name, data.phone || '', data.address || '', data.credit_limit || 0, data.notes || '', id]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('customers:update error:', error);
+    return { success: false, message: 'Gagal mengupdate pelanggan' };
+  }
+});
+
+ipcMain.handle('customers:delete', async (event, id) => {
+  try {
+    const hasReceivables = dbModule.get('SELECT id FROM receivables WHERE customer_id = ? LIMIT 1', [id]);
+    if (hasReceivables) return { success: false, message: 'Pelanggan memiliki data piutang, tidak dapat dihapus' };
+    dbModule.run('DELETE FROM customers WHERE id = ?', [id]);
+    return { success: true };
+  } catch (error) {
+    console.error('customers:delete error:', error);
+    return { success: false, message: 'Gagal menghapus pelanggan' };
+  }
+});
+
+ipcMain.handle('customers:toggleStatus', async (event, id) => {
+  try {
+    dbModule.run(
+      `UPDATE customers SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [id]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('customers:toggleStatus error:', error);
+    return { success: false, message: 'Gagal mengubah status pelanggan' };
+  }
+});
+
+// ============================================
+// RECEIVABLES IPC HANDLERS
+// ============================================
+
+ipcMain.handle('receivables:getAll', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT r.*, c.name as customer_name, c.customer_code, c.phone as customer_phone,
+             t.transaction_code, t.transaction_date
+      FROM receivables r
+      JOIN customers c ON r.customer_id = c.id
+      JOIN transactions t ON r.transaction_id = t.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (filters.customer_id) {
+      sql += ' AND r.customer_id = ?';
+      params.push(filters.customer_id);
+    }
+    if (filters.status) {
+      sql += ' AND r.status = ?';
+      params.push(filters.status);
+    }
+    sql += ' ORDER BY r.created_at DESC';
+    const receivables = dbModule.all(sql, params);
+    return { success: true, receivables };
+  } catch (error) {
+    console.error('receivables:getAll error:', error);
+    return { success: false, message: 'Gagal memuat data piutang' };
+  }
+});
+
+ipcMain.handle('receivables:getById', async (event, id) => {
+  try {
+    const receivable = dbModule.get(`
+      SELECT r.*, c.name as customer_name, c.customer_code, c.phone as customer_phone,
+             t.transaction_code, t.transaction_date
+      FROM receivables r
+      JOIN customers c ON r.customer_id = c.id
+      JOIN transactions t ON r.transaction_id = t.id
+      WHERE r.id = ?
+    `, [id]);
+    if (!receivable) return { success: false, message: 'Piutang tidak ditemukan' };
+    const payments = dbModule.all(
+      `SELECT rp.*, u.full_name as user_name FROM receivable_payments rp
+       LEFT JOIN users u ON rp.user_id = u.id
+       WHERE rp.receivable_id = ? ORDER BY rp.payment_date DESC`,
+      [id]
+    );
+    return { success: true, receivable, payments };
+  } catch (error) {
+    console.error('receivables:getById error:', error);
+    return { success: false, message: 'Gagal memuat data piutang' };
+  }
+});
+
+ipcMain.handle('receivables:getSummaryByCustomer', async (event) => {
+  try {
+    const summary = dbModule.all(`
+      SELECT c.id, c.customer_code, c.name, c.phone, c.credit_limit,
+        COALESCE(SUM(CASE WHEN r.status != 'paid' THEN r.remaining_amount ELSE 0 END), 0) as outstanding,
+        COUNT(CASE WHEN r.status = 'unpaid' THEN 1 END) as count_unpaid,
+        COUNT(CASE WHEN r.status = 'partial' THEN 1 END) as count_partial,
+        COUNT(CASE WHEN r.status = 'paid' THEN 1 END) as count_paid
+      FROM customers c
+      LEFT JOIN receivables r ON r.customer_id = c.id
+      WHERE c.is_active = 1
+      GROUP BY c.id
+      ORDER BY outstanding DESC, c.name
+    `);
+    return { success: true, summary };
+  } catch (error) {
+    console.error('receivables:getSummaryByCustomer error:', error);
+    return { success: false, message: 'Gagal memuat ringkasan piutang' };
+  }
+});
+
+ipcMain.handle('receivables:pay', async (event, receivableId, paymentData) => {
+  try {
+    if (!currentUser) return { success: false, message: 'User tidak ditemukan' };
+
+    const receivable = dbModule.get('SELECT * FROM receivables WHERE id = ?', [receivableId]);
+    if (!receivable) return { success: false, message: 'Piutang tidak ditemukan' };
+    if (receivable.status === 'paid') return { success: false, message: 'Piutang sudah lunas' };
+
+    const amount = parseFloat(paymentData.amount);
+    if (!amount || amount <= 0) return { success: false, message: 'Jumlah pembayaran tidak valid' };
+    if (amount > receivable.remaining_amount) return { success: false, message: 'Jumlah pembayaran melebihi sisa piutang' };
+
+    const newPaid = receivable.paid_amount + amount;
+    const newRemaining = receivable.remaining_amount - amount;
+    const newStatus = newRemaining <= 0 ? 'paid' : 'partial';
+
+    dbModule.run(
+      `UPDATE receivables SET paid_amount=?, remaining_amount=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [newPaid, newRemaining, newStatus, receivableId]
+    );
+
+    dbModule.run(
+      `INSERT INTO receivable_payments (receivable_id, payment_date, amount, payment_method, notes, user_id)
+       VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?)`,
+      [receivableId, amount, paymentData.payment_method || 'cash', paymentData.notes || '', currentUser.id]
+    );
+
+    return { success: true, newStatus, newRemaining, newPaid };
+  } catch (error) {
+    console.error('receivables:pay error:', error);
+    return { success: false, message: 'Gagal memproses pembayaran piutang' };
+  }
+});
+
+ipcMain.handle('receivables:getPayments', async (event, receivableId) => {
+  try {
+    const payments = dbModule.all(
+      `SELECT rp.*, u.full_name as user_name FROM receivable_payments rp
+       LEFT JOIN users u ON rp.user_id = u.id
+       WHERE rp.receivable_id = ? ORDER BY rp.payment_date DESC`,
+      [receivableId]
+    );
+    return { success: true, payments };
+  } catch (error) {
+    console.error('receivables:getPayments error:', error);
+    return { success: false, message: 'Gagal memuat riwayat pembayaran' };
   }
 });

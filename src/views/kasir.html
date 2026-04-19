@@ -133,7 +133,17 @@
                 <option value="credit">Credit Card</option>
                 <option value="qris">QRIS</option>
                 <option value="transfer">Transfer</option>
+                <option value="kredit">Kredit / Piutang</option>
               </select>
+            </div>
+
+            <!-- Section Pelanggan (muncul saat kredit dipilih) -->
+            <div class="form-group" id="customerSection" style="display:none;">
+              <label for="customerSelect">Pelanggan <span class="required">*</span></label>
+              <select id="customerSelect">
+                <option value="">-- Pilih Pelanggan --</option>
+              </select>
+              <div id="customerCreditInfo" style="font-size:12px;margin-top:4px;color:#666;"></div>
             </div>
 
             <div class="form-group">

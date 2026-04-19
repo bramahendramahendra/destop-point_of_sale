@@ -6,6 +6,8 @@ let currentTax = { percent: 0, amount: 0 };
 let searchTimeout = null;
 // pending product for unit selection
 let pendingProduct = null;
+// cache harga tier: { [product_id]: [{tier_name, min_qty, price}, ...] }
+let productPricesCache = {};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -92,6 +94,12 @@ function setupEventListeners() {
   document.getElementById('btnPayment').addEventListener('click', openPaymentModal);
   document.getElementById('btnHold').addEventListener('click', saveDraft);
   document.getElementById('btnCancel').addEventListener('click', confirmClearCart);
+
+  // Metode bayar: tampilkan/sembunyikan section pelanggan kredit
+  document.getElementById('paymentMethod').addEventListener('change', onPaymentMethodChange);
+
+  // Load daftar pelanggan aktif
+  loadCustomerList();
 
   // Payment modal
   document.getElementById('closePaymentModal').addEventListener('click', closePaymentModal);
@@ -212,11 +220,11 @@ async function addToCartWithUnitSelect(product) {
 // ============================================
 
 // unitInfo = { unit_id, unit_name, conversion_qty, selling_price } | null (gunakan satuan dasar)
-function addToCart(product, quantity, unitInfo) {
+async function addToCart(product, quantity, unitInfo) {
   const unitName = unitInfo ? unitInfo.unit_name : (product.unit || 'pcs');
   const unitId = unitInfo ? unitInfo.unit_id : null;
   const conversionQty = unitInfo ? unitInfo.conversion_qty : 1;
-  const price = unitInfo ? unitInfo.selling_price : product.selling_price;
+  const basePrice = unitInfo ? unitInfo.selling_price : product.selling_price;
 
   // Stock cek dalam satuan dasar
   const stockNeeded = quantity * conversionQty;
@@ -224,6 +232,11 @@ function addToCart(product, quantity, unitInfo) {
     showToast(`Stok ${product.name} tidak mencukupi (tersedia: ${product.stock} ${product.unit || 'pcs'})`, 'error');
     return;
   }
+
+  // Muat tier harga dan tentukan harga aktif
+  const tiers = await loadProductPriceTiers(product.id);
+  const activeTier = getActivePriceTier(tiers, quantity, basePrice);
+  const price = activeTier.price;
 
   // Cari item di cart berdasarkan product_id DAN unit_id
   const existingIndex = cart.findIndex(
@@ -239,14 +252,21 @@ function addToCart(product, quantity, unitInfo) {
       return;
     }
 
+    const newTier = getActivePriceTier(tiers, newQty, basePrice);
     cart[existingIndex].quantity = newQty;
-    cart[existingIndex].subtotal = newQty * price;
+    cart[existingIndex].price = newTier.price;
+    cart[existingIndex].active_tier = newTier.tier_name;
+    cart[existingIndex].is_default_price = newTier.is_default;
+    cart[existingIndex].subtotal = newQty * newTier.price;
   } else {
     cart.push({
       product_id: product.id,
       product_name: product.name,
       barcode: product.barcode || '',
       price: price,
+      base_price: basePrice,
+      active_tier: activeTier.tier_name,
+      is_default_price: activeTier.is_default,
       quantity: quantity,
       unit: unitName,
       unit_id: unitId,
@@ -262,7 +282,33 @@ function addToCart(product, quantity, unitInfo) {
   setTimeout(() => document.getElementById('productSearch').focus(), 100);
 }
 
-function updateCartItemQty(index, newQty) {
+// Muat tier harga dari API dan simpan ke cache
+async function loadProductPriceTiers(productId) {
+  if (productPricesCache[productId] !== undefined) return productPricesCache[productId];
+  try {
+    const result = await window.api.productPrices.getByProduct(productId);
+    productPricesCache[productId] = result.success ? result.prices : [];
+  } catch (e) {
+    productPricesCache[productId] = [];
+  }
+  return productPricesCache[productId];
+}
+
+// Kembalikan { tier_name, price } tier yang aktif untuk qty tertentu, atau null jika pakai harga default
+function getActivePriceTier(tiers, qty, defaultPrice) {
+  if (!tiers || tiers.length === 0) return { tier_name: 'Harga Retail', price: defaultPrice, is_default: true };
+
+  // Urutkan descending min_qty agar tier terbesar lebih dulu
+  const sorted = [...tiers].sort((a, b) => b.min_qty - a.min_qty);
+  for (const t of sorted) {
+    if (qty >= t.min_qty) {
+      return { tier_name: t.tier_name, price: t.price, is_default: false };
+    }
+  }
+  return { tier_name: 'Harga Retail', price: defaultPrice, is_default: true };
+}
+
+async function updateCartItemQty(index, newQty) {
   if (newQty <= 0) {
     removeCartItem(index);
     return;
@@ -277,8 +323,15 @@ function updateCartItemQty(index, newQty) {
     return;
   }
 
+  // Cek apakah ada tier harga yang berubah
+  const tiers = await loadProductPriceTiers(item.product_id);
+  const activeTier = getActivePriceTier(tiers, newQty, item.base_price || item.price);
+
   cart[index].quantity = newQty;
-  cart[index].subtotal = cart[index].quantity * cart[index].price;
+  cart[index].price = activeTier.price;
+  cart[index].active_tier = activeTier.tier_name;
+  cart[index].is_default_price = activeTier.is_default;
+  cart[index].subtotal = newQty * activeTier.price;
 
   renderCart();
   calculateTotal();
@@ -294,18 +347,77 @@ function removeCartItem(index) {
 
 function clearCart() {
   cart = [];
+  productPricesCache = {};
   currentDiscount = { type: 'none', value: 0, amount: 0 };
   currentTax = { percent: 0, amount: 0 };
-  
+
   document.getElementById('discountValue').value = '';
   document.getElementById('taxPercent').value = '';
   document.getElementById('customerName').value = '';
   document.getElementById('notes').value = '';
   document.getElementById('paymentMethod').value = 'cash';
-  
+  document.getElementById('customerSelect').value = '';
+  document.getElementById('customerSection').style.display = 'none';
+  document.getElementById('customerCreditInfo').textContent = '';
+
   renderCart();
   calculateTotal();
   localStorage.removeItem('cart_draft');
+}
+
+// ============================================
+// KREDIT / PELANGGAN
+// ============================================
+
+async function loadCustomerList() {
+  try {
+    const result = await window.api.customers.getActiveList();
+    if (!result.success) return;
+    const select = document.getElementById('customerSelect');
+    // Hapus semua option kecuali pertama
+    while (select.options.length > 1) select.remove(1);
+    result.customers.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = `${c.customer_code} - ${c.name}`;
+      opt.dataset.limit = c.credit_limit;
+      opt.dataset.outstanding = c.outstanding;
+      select.appendChild(opt);
+    });
+
+    select.addEventListener('change', updateCreditInfo);
+  } catch (error) {
+    console.error('loadCustomerList error:', error);
+  }
+}
+
+function onPaymentMethodChange() {
+  const method = document.getElementById('paymentMethod').value;
+  const section = document.getElementById('customerSection');
+  if (method === 'kredit') {
+    section.style.display = 'block';
+  } else {
+    section.style.display = 'none';
+    document.getElementById('customerCreditInfo').textContent = '';
+  }
+}
+
+function updateCreditInfo() {
+  const select = document.getElementById('customerSelect');
+  const opt = select.options[select.selectedIndex];
+  const infoEl = document.getElementById('customerCreditInfo');
+  if (!opt || !opt.value) { infoEl.textContent = ''; return; }
+
+  const limit = parseFloat(opt.dataset.limit) || 0;
+  const outstanding = parseFloat(opt.dataset.outstanding) || 0;
+  const sisa = limit > 0 ? limit - outstanding : null;
+
+  if (limit === 0) {
+    infoEl.innerHTML = `<span style="color:#27ae60;">Limit: Tak terbatas &bull; Outstanding: ${formatCurrency(outstanding)}</span>`;
+  } else {
+    const color = sisa !== null && sisa < 0 ? '#e74c3c' : '#f39c12';
+    infoEl.innerHTML = `<span style="color:${color};">Limit: ${formatCurrency(limit)} &bull; Outstanding: ${formatCurrency(outstanding)} &bull; Sisa: ${formatCurrency(sisa)}</span>`;
+  }
 }
 
 function renderCart() {
@@ -323,10 +435,14 @@ function renderCart() {
     return;
   }
 
-  tbody.innerHTML = cart.map((item, index) => `
+  tbody.innerHTML = cart.map((item, index) => {
+    const tierBadge = item.active_tier && !item.is_default_price
+      ? `<br><span class="badge badge-warning" style="font-size:10px; margin-top:2px;">${escapeHtml(item.active_tier)}</span>`
+      : '';
+    return `
     <tr>
       <td>${index + 1}</td>
-      <td>${escapeHtml(item.product_name)}</td>
+      <td>${escapeHtml(item.product_name)}${tierBadge}</td>
       <td>
         <button class="btn-unit-select" onclick="changeCartItemUnit(${index})" title="Ganti satuan">
           ${escapeHtml(item.unit)}
@@ -354,7 +470,8 @@ function renderCart() {
         </button>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ============================================
@@ -429,17 +546,36 @@ function openPaymentModal() {
 
   const total = calculateTotal();
   const paymentMethod = document.getElementById('paymentMethod').value;
-  
+  const isCredit = paymentMethod === 'kredit';
+
+  // Validasi pelanggan sebelum buka modal
+  if (isCredit && !document.getElementById('customerSelect').value) {
+    showToast('Pilih pelanggan untuk transaksi kredit', 'error');
+    return;
+  }
+
   document.getElementById('paymentTotal').textContent = formatCurrency(total);
   document.getElementById('paymentMethodDisplay').textContent = getPaymentMethodLabel(paymentMethod);
-  document.getElementById('paymentAmount').value = '';
+  document.getElementById('paymentAmount').value = isCredit ? '0' : '';
   document.getElementById('changeAmount').textContent = 'Rp 0';
   document.getElementById('insufficientWarning').style.display = 'none';
-  
+
+  // Sembunyikan input bayar jika kredit
+  const payAmountGroup = document.getElementById('paymentAmount').closest('.form-group');
+  const changeDisplay = document.getElementById('changeDisplay');
+  if (isCredit) {
+    payAmountGroup.style.display = 'none';
+    changeDisplay.style.display = 'none';
+    document.getElementById('btnProcessPayment').disabled = false;
+  } else {
+    payAmountGroup.style.display = '';
+    changeDisplay.style.display = '';
+  }
+
   document.getElementById('paymentModal').style.display = 'flex';
-  
+
   setTimeout(() => {
-    document.getElementById('paymentAmount').focus();
+    if (!isCredit) document.getElementById('paymentAmount').focus();
   }, 100);
 }
 
@@ -470,15 +606,26 @@ function calculateChange() {
 
 async function processTransaction() {
   const total = calculateTotal();
+  const paymentMethod = document.getElementById('paymentMethod').value;
+  const isCredit = paymentMethod === 'kredit';
+
+  // Validasi pelanggan jika kredit
+  if (isCredit) {
+    const customerId = document.getElementById('customerSelect').value;
+    if (!customerId) {
+      showToast('Pilih pelanggan untuk transaksi kredit', 'error');
+      return;
+    }
+  }
+
   const paymentAmount = parseFloat(document.getElementById('paymentAmount').value) || 0;
-  
-  if (paymentAmount < total) {
+
+  if (!isCredit && paymentAmount < total) {
     showToast('Jumlah uang yang dibayarkan kurang', 'error');
     return;
   }
 
   const transactionCode = generateTransactionCode();
-  const paymentMethod = document.getElementById('paymentMethod').value;
   
   // Ensure all cart items have complete data
   const items = cart.map(item => ({
@@ -493,6 +640,15 @@ async function processTransaction() {
     subtotal: item.subtotal
   }));
 
+  const customerId = isCredit ? (parseInt(document.getElementById('customerSelect').value) || null) : null;
+  // Jika kredit, ambil nama pelanggan dari dropdown
+  let customerName = document.getElementById('customerName').value.trim() || '';
+  if (isCredit && customerId) {
+    const sel = document.getElementById('customerSelect');
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.textContent) customerName = opt.textContent.split(' - ').slice(1).join(' - ');
+  }
+
   const transactionData = {
     transaction_code: transactionCode,
     user_id: currentUser.id,
@@ -505,10 +661,12 @@ async function processTransaction() {
     tax_amount: currentTax.amount || 0,
     total_amount: total,
     payment_method: paymentMethod,
-    payment_amount: paymentAmount,
-    change_amount: paymentAmount - total,
-    customer_name: document.getElementById('customerName').value.trim() || '',
+    payment_amount: isCredit ? 0 : paymentAmount,
+    change_amount: isCredit ? 0 : (paymentAmount - total),
+    customer_name: customerName,
     notes: document.getElementById('notes').value.trim() || '',
+    customer_id: customerId,
+    is_credit: isCredit ? 1 : 0,
     items: items
   };
 
@@ -702,7 +860,8 @@ function getPaymentMethodLabel(method) {
     debit: 'Debit Card',
     credit: 'Credit Card',
     qris: 'QRIS',
-    transfer: 'Transfer'
+    transfer: 'Transfer',
+    kredit: 'Kredit / Piutang'
   };
   return labels[method] || method;
 }
@@ -718,9 +877,10 @@ function saveDraft() {
     tax: currentTax,
     customerName: document.getElementById('customerName').value,
     notes: document.getElementById('notes').value,
-    paymentMethod: document.getElementById('paymentMethod').value
+    paymentMethod: document.getElementById('paymentMethod').value,
+    customerId: document.getElementById('customerSelect').value
   };
-  
+
   localStorage.setItem('cart_draft', JSON.stringify(draft));
   showToast('Draft disimpan', 'info');
 }
@@ -739,6 +899,13 @@ function loadDraft() {
     document.getElementById('customerName').value = draft.customerName || '';
     document.getElementById('notes').value = draft.notes || '';
     document.getElementById('paymentMethod').value = draft.paymentMethod || 'cash';
+    if (draft.customerId) {
+      document.getElementById('customerSelect').value = draft.customerId;
+    }
+    if (draft.paymentMethod === 'kredit') {
+      document.getElementById('customerSection').style.display = 'block';
+      updateCreditInfo();
+    }
     
     if (currentDiscount.value > 0) {
       document.getElementById('discountValue').value = currentDiscount.value;

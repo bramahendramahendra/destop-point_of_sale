@@ -98,6 +98,26 @@ contextBridge.exposeInMainWorld('api', {
     save: (productId, units) => ipcRenderer.invoke('productUnits:save', productId, units),
     delete: (id) => ipcRenderer.invoke('productUnits:delete', id)
   },
+  productPrices: {
+    getByProduct: (productId) => ipcRenderer.invoke('productPrices:getByProduct', productId),
+    save: (productId, prices) => ipcRenderer.invoke('productPrices:save', productId, prices)
+  },
+  customers: {
+    getAll: (filters) => ipcRenderer.invoke('customers:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('customers:getById', id),
+    getActiveList: () => ipcRenderer.invoke('customers:getActiveList'),
+    create: (data) => ipcRenderer.invoke('customers:create', data),
+    update: (id, data) => ipcRenderer.invoke('customers:update', id, data),
+    delete: (id) => ipcRenderer.invoke('customers:delete', id),
+    toggleStatus: (id) => ipcRenderer.invoke('customers:toggleStatus', id)
+  },
+  receivables: {
+    getAll: (filters) => ipcRenderer.invoke('receivables:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('receivables:getById', id),
+    getSummaryByCustomer: () => ipcRenderer.invoke('receivables:getSummaryByCustomer'),
+    pay: (receivableId, paymentData) => ipcRenderer.invoke('receivables:pay', receivableId, paymentData),
+    getPayments: (receivableId) => ipcRenderer.invoke('receivables:getPayments', receivableId)
+  },
   finance: {
     getDashboard: (filters) => ipcRenderer.invoke('finance:getDashboard', filters),
     getTopProducts: (filters) => ipcRenderer.invoke('finance:getTopProducts', filters)

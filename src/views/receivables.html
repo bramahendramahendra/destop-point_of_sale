@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piutang Pelanggan - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <aside class="sidebar"></aside>
+
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Piutang Pelanggan</h1>
+        <a href="customers.html" class="btn btn-secondary">👥 Master Pelanggan</a>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button active" data-tab="summary">Ringkasan Piutang</button>
+          <button class="tab-button" data-tab="detail">Detail Piutang</button>
+        </div>
+      </div>
+
+      <!-- Tab: Ringkasan per Pelanggan -->
+      <div id="summary-tab" class="tab-content active">
+        <div class="filters-container">
+          <div class="filter-group">
+            <input type="text" id="searchSummary" class="filter-input" placeholder="Cari nama pelanggan...">
+            <button class="btn btn-primary" id="btnFilterSummary">🔍 Filter</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="110">Kode</th>
+                <th>Nama Pelanggan</th>
+                <th width="130">Telepon</th>
+                <th width="130">Limit Kredit</th>
+                <th width="130">Outstanding</th>
+                <th width="80">Blm Bayar</th>
+                <th width="80">Sebagian</th>
+                <th width="100">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody">
+              <tr><td colspan="8" class="text-center">Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Detail Piutang -->
+      <div id="detail-tab" class="tab-content">
+        <div class="filters-container">
+          <div class="filter-group filter-group--with-label">
+            <div class="form-group">
+              <label>Pelanggan</label>
+              <select id="filterDetailCustomer" class="filter-input">
+                <option value="">Semua Pelanggan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="filterDetailStatus" class="filter-input">
+                <option value="">Semua Status</option>
+                <option value="unpaid">Belum Bayar</option>
+                <option value="partial">Bayar Sebagian</option>
+                <option value="paid">Lunas</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" id="btnFilterDetail">🔍 Filter</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="130">No. Transaksi</th>
+                <th>Pelanggan</th>
+                <th width="140">Tgl Transaksi</th>
+                <th width="120">Total</th>
+                <th width="120">Sudah Bayar</th>
+                <th width="120">Sisa</th>
+                <th width="110">Status</th>
+                <th width="130">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="detailTableBody">
+              <tr><td colspan="8" class="text-center">Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Detail & Pembayaran Piutang -->
+  <div id="paymentModal" class="modal">
+    <div class="modal-content" style="max-width:580px;">
+      <div class="modal-header">
+        <h2>Pembayaran Piutang</h2>
+        <button class="modal-close" id="closePaymentModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Info Piutang -->
+        <div class="payment-summary" style="margin-bottom:16px;">
+          <div class="payment-info-row">
+            <span>Pelanggan:</span>
+            <strong id="payCustomerName">-</strong>
+          </div>
+          <div class="payment-info-row">
+            <span>No. Transaksi:</span>
+            <strong id="payTransactionCode">-</strong>
+          </div>
+          <div class="payment-info-row">
+            <span>Total Piutang:</span>
+            <strong id="payTotalAmount">Rp 0</strong>
+          </div>
+          <div class="payment-info-row">
+            <span>Sudah Dibayar:</span>
+            <strong id="payPaidAmount">Rp 0</strong>
+          </div>
+          <div class="payment-info-row">
+            <span>Sisa Piutang:</span>
+            <strong id="payRemainingAmount" class="total-amount">Rp 0</strong>
+          </div>
+        </div>
+
+        <!-- Form Bayar -->
+        <div id="payFormSection">
+          <hr style="margin:12px 0;">
+          <h4 style="margin-bottom:12px;">Input Pembayaran</h4>
+          <input type="hidden" id="payReceivableId">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Jumlah Bayar <span class="required">*</span></label>
+              <input type="number" id="payAmount" placeholder="0" min="1" step="1000">
+            </div>
+            <div class="form-group">
+              <label>Metode Bayar</label>
+              <select id="payMethod">
+                <option value="cash">Cash</option>
+                <option value="transfer">Transfer</option>
+                <option value="debit">Debit Card</option>
+                <option value="qris">QRIS</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Catatan</label>
+            <input type="text" id="payNotes" placeholder="Opsional">
+          </div>
+          <div id="paySisaPreview" style="font-size:13px;color:#666;margin-bottom:8px;"></div>
+          <div class="modal-footer" style="padding:0;">
+            <button type="button" class="btn btn-secondary" id="btnCancelPay">Batal</button>
+            <button type="button" class="btn btn-success" id="btnProcessPay">✓ Proses Pembayaran</button>
+          </div>
+        </div>
+
+        <!-- Riwayat Pembayaran -->
+        <div style="margin-top:20px;">
+          <h4 style="margin-bottom:8px;">Riwayat Pembayaran</h4>
+          <div id="paymentHistory">
+            <p class="text-muted text-center" style="font-size:13px;">Belum ada pembayaran</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/notification.js"></script>
+  <script src="../js/receivables.js"></script>
+</body>
+</html>

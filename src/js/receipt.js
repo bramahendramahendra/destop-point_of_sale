@@ -90,8 +90,16 @@ function displayReceipt(transaction) {
   }
 
   document.getElementById('receiptTotal').textContent = formatCurrency(transaction.total_amount);
-  document.getElementById('receiptPaid').textContent = formatCurrency(transaction.payment_amount);
-  document.getElementById('receiptChange').textContent = formatCurrency(transaction.change_amount);
+
+  if (transaction.is_credit) {
+    document.getElementById('receiptCreditRow').classList.remove('hidden');
+    document.getElementById('receiptCreditAmount').textContent = formatCurrency(transaction.total_amount);
+    document.getElementById('receiptPaidRow').style.display = 'none';
+    document.getElementById('receiptChangeRow').style.display = 'none';
+  } else {
+    document.getElementById('receiptPaid').textContent = formatCurrency(transaction.payment_amount);
+    document.getElementById('receiptChange').textContent = formatCurrency(transaction.change_amount);
+  }
 }
 
 // ============================================

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Pelanggan - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <aside class="sidebar"></aside>
+
+    <main class="main-content">
+      <div class="content-header">
+        <h1>Master Pelanggan</h1>
+        <button class="btn btn-primary" id="btnAddCustomer">+ Tambah Pelanggan</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-container">
+        <div class="filter-group">
+          <input type="text" id="searchCustomer" class="filter-input" placeholder="Cari nama / telepon / kode...">
+          <select id="filterStatus" class="filter-input">
+            <option value="">Semua Status</option>
+            <option value="1">Aktif</option>
+            <option value="0">Nonaktif</option>
+          </select>
+          <button class="btn btn-primary" id="btnFilter">🔍 Filter</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th width="110">Kode</th>
+              <th>Nama</th>
+              <th width="130">Telepon</th>
+              <th>Alamat</th>
+              <th width="130">Limit Kredit</th>
+              <th width="130">Outstanding</th>
+              <th width="80">Status</th>
+              <th width="130">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="customerTableBody">
+            <tr><td colspan="8" class="text-center">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Form Pelanggan -->
+  <div id="customerModal" class="modal">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <h2 id="customerModalTitle">Tambah Pelanggan</h2>
+        <button class="modal-close" id="closeCustomerModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="customerForm">
+          <input type="hidden" id="customerId">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Kode Pelanggan <span class="required">*</span></label>
+              <input type="text" id="customerCode" placeholder="Cth: PLG-001" required>
+            </div>
+            <div class="form-group">
+              <label>Telepon</label>
+              <input type="text" id="customerPhone" placeholder="08xxx">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Nama Pelanggan <span class="required">*</span></label>
+            <input type="text" id="customerName" placeholder="Nama lengkap" required>
+          </div>
+          <div class="form-group">
+            <label>Alamat</label>
+            <textarea id="customerAddress" rows="2" placeholder="Alamat lengkap"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Batas Kredit (Plafon)</label>
+            <input type="number" id="customerCreditLimit" placeholder="0 = tidak terbatas" min="0" step="1000">
+            <small class="form-hint">Isi 0 jika tidak ada batas kredit</small>
+          </div>
+          <div class="form-group">
+            <label>Catatan</label>
+            <textarea id="customerNotes" rows="2" placeholder="Catatan (opsional)"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelCustomer">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btnSaveCustomer">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Konfirmasi Hapus -->
+  <div id="deleteCustomerModal" class="modal">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h2>Hapus Pelanggan</h2>
+        <button class="modal-close" id="closeDeleteCustomerModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Yakin ingin menghapus pelanggan <strong id="deleteCustomerName"></strong>?</p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelDelete">Batal</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDelete">Hapus</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/notification.js"></script>
+  <script src="../js/customers.js"></script>
+</body>
+</html>

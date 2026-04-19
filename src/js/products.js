@@ -79,6 +79,12 @@ function setupEventListeners() {
   document.getElementById('btnCancelProductUnit').addEventListener('click', closeProductUnitModal);
   document.getElementById('productUnitForm').addEventListener('submit', handleProductUnitFormSubmit);
 
+  // Product price tier buttons
+  document.getElementById('btnAddProductPrice').addEventListener('click', openAddProductPriceModal);
+  document.getElementById('closeProductPriceModal').addEventListener('click', closeProductPriceModal);
+  document.getElementById('btnCancelProductPrice').addEventListener('click', closeProductPriceModal);
+  document.getElementById('productPriceForm').addEventListener('submit', handleProductPriceFormSubmit);
+
   // Auto-calculate hint on product unit price input
   document.getElementById('puConversionQty').addEventListener('input', updatePuPriceHint);
   document.getElementById('puSellingPrice').addEventListener('input', updatePuPriceHint);
@@ -89,11 +95,13 @@ function setupEventListeners() {
     const categoryModal = document.getElementById('categoryModal');
     const unitModal = document.getElementById('unitModal');
     const productUnitModal = document.getElementById('productUnitModal');
+    const productPriceModal = document.getElementById('productPriceModal');
 
     if (e.target === productModal) closeProductModal();
     if (e.target === categoryModal) closeCategoryModal();
     if (e.target === unitModal) closeUnitModal();
     if (e.target === productUnitModal) closeProductUnitModal();
+    if (e.target === productPriceModal) closeProductPriceModal();
   });
 }
 
@@ -473,6 +481,8 @@ function openAddProductModal() {
   document.getElementById('productFormError').style.display = 'none';
   document.getElementById('btnSubmitProductText').textContent = 'Simpan';
   document.getElementById('productUnitsSection').classList.add('hidden');
+  document.getElementById('productPricesSection').classList.add('hidden');
+  productPriceRows = [];
   document.getElementById('productModal').style.display = 'flex';
 
   setTimeout(() => {
@@ -504,6 +514,9 @@ async function editProduct(productId) {
       // Load product units
       await loadProductUnitsForEdit(productId, product.unit, product.selling_price);
 
+      // Load product price tiers
+      await loadProductPricesForEdit(productId);
+
       document.getElementById('productFormError').style.display = 'none';
       document.getElementById('btnSubmitProductText').textContent = 'Update';
       document.getElementById('productModal').style.display = 'flex';
@@ -524,8 +537,10 @@ function closeProductModal() {
   document.getElementById('productModal').style.display = 'none';
   document.getElementById('productForm').reset();
   document.getElementById('productUnitsSection').classList.add('hidden');
+  document.getElementById('productPricesSection').classList.add('hidden');
   editingProductId = null;
   productUnitRows = [];
+  productPriceRows = [];
 }
 
 function handleGenerateBarcode() {
@@ -1086,6 +1101,168 @@ async function handleProductUnitFormSubmit(e) {
 
 function showPuFormError(message) {
   const el = document.getElementById('productUnitFormError');
+  el.textContent = message;
+  el.style.display = 'block';
+}
+
+// ============================================
+// PRODUCT PRICES (MULTI-HARGA / GROSIR)
+// ============================================
+
+// Buffer: array of { tier_name, min_qty, price }
+let productPriceRows = [];
+let ppEditIndex = null;
+
+async function loadProductPricesForEdit(productId) {
+  try {
+    const result = await window.api.productPrices.getByProduct(productId);
+    productPriceRows = result.success ? result.prices.map(p => ({
+      tier_name: p.tier_name,
+      min_qty: p.min_qty,
+      price: p.price
+    })) : [];
+  } catch (error) {
+    console.error('loadProductPricesForEdit error:', error);
+    productPriceRows = [];
+  }
+  renderProductPricesRows();
+  document.getElementById('productPricesSection').classList.remove('hidden');
+}
+
+function renderProductPricesRows() {
+  const container = document.getElementById('productPricesContainer');
+
+  if (productPriceRows.length === 0) {
+    container.innerHTML = `<p class="text-center" style="color:#888; font-size:13px;">Belum ada tier harga. Klik "+ Tambah Tier Harga" untuk menambahkan.</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="data-table" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th>Nama Tier</th>
+          <th>Qty Minimum</th>
+          <th>Harga per Satuan</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${productPriceRows.map((row, idx) => `
+          <tr>
+            <td>${escapeHtml(row.tier_name)}</td>
+            <td>≥ ${row.min_qty}</td>
+            <td>${formatCurrency(row.price)}</td>
+            <td class="action-buttons">
+              <button type="button" class="btn-icon" onclick="editProductPriceRow(${idx})" title="Edit">✏️</button>
+              <button type="button" class="btn-icon" onclick="deleteProductPriceRow(${idx})" title="Hapus">🗑️</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function openAddProductPriceModal() {
+  if (!editingProductId) {
+    showToast('Simpan produk terlebih dahulu sebelum menambahkan tier harga', 'warning');
+    return;
+  }
+
+  ppEditIndex = null;
+  document.getElementById('productPriceModalTitle').textContent = 'Tambah Tier Harga';
+  document.getElementById('productPriceForm').reset();
+  document.getElementById('ppEditIndex').value = '';
+  document.getElementById('productPriceFormError').style.display = 'none';
+  document.getElementById('btnSubmitProductPriceText').textContent = 'Simpan';
+  document.getElementById('productPriceModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('ppTierName').focus(), 100);
+}
+
+function editProductPriceRow(idx) {
+  const row = productPriceRows[idx];
+  ppEditIndex = idx;
+
+  document.getElementById('productPriceModalTitle').textContent = 'Edit Tier Harga';
+  document.getElementById('ppEditIndex').value = idx;
+  document.getElementById('ppTierName').value = row.tier_name;
+  document.getElementById('ppMinQty').value = row.min_qty;
+  document.getElementById('ppPrice').value = row.price;
+  document.getElementById('productPriceFormError').style.display = 'none';
+  document.getElementById('btnSubmitProductPriceText').textContent = 'Update';
+  document.getElementById('productPriceModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('ppTierName').focus(), 100);
+}
+
+function deleteProductPriceRow(idx) {
+  showConfirm('Konfirmasi Hapus', 'Yakin ingin menghapus tier harga ini?', async () => {
+    productPriceRows.splice(idx, 1);
+    if (editingProductId) {
+      await window.api.productPrices.save(editingProductId, productPriceRows);
+    }
+    renderProductPricesRows();
+    showToast('Tier harga dihapus', 'success');
+  });
+}
+
+function closeProductPriceModal() {
+  document.getElementById('productPriceModal').style.display = 'none';
+  document.getElementById('productPriceForm').reset();
+  ppEditIndex = null;
+}
+
+async function handleProductPriceFormSubmit(e) {
+  e.preventDefault();
+
+  const tierName = document.getElementById('ppTierName').value.trim();
+  const minQty = parseFloat(document.getElementById('ppMinQty').value) || 0;
+  const price = parseFloat(document.getElementById('ppPrice').value) || 0;
+
+  if (!tierName) {
+    showPpFormError('Nama tier harus diisi');
+    return;
+  }
+  if (minQty <= 0) {
+    showPpFormError('Qty minimum harus lebih dari 0');
+    return;
+  }
+  if (price <= 0) {
+    showPpFormError('Harga harus lebih dari 0');
+    return;
+  }
+
+  const rowData = { tier_name: tierName, min_qty: minQty, price };
+
+  if (ppEditIndex !== null) {
+    productPriceRows[ppEditIndex] = rowData;
+  } else {
+    productPriceRows.push(rowData);
+  }
+
+  // Sort by min_qty ascending
+  productPriceRows.sort((a, b) => a.min_qty - b.min_qty);
+
+  if (editingProductId) {
+    const saveResult = await window.api.productPrices.save(editingProductId, productPriceRows);
+    if (!saveResult.success) {
+      showToast('Gagal menyimpan tier harga', 'error');
+      return;
+    }
+    // Refresh from DB
+    const fresh = await window.api.productPrices.getByProduct(editingProductId);
+    if (fresh.success) {
+      productPriceRows = fresh.prices.map(p => ({ tier_name: p.tier_name, min_qty: p.min_qty, price: p.price }));
+    }
+  }
+
+  renderProductPricesRows();
+  closeProductPriceModal();
+  showToast(ppEditIndex !== null ? 'Tier harga diupdate' : 'Tier harga ditambahkan', 'success');
+}
+
+function showPpFormError(message) {
+  const el = document.getElementById('productPriceFormError');
   el.textContent = message;
   el.style.display = 'block';
 }

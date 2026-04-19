@@ -54,6 +54,13 @@ function renderMenu(activePage) {
       roles: ['owner', 'admin']
     },
     {
+      id: 'piutang',
+      icon: '📋',
+      text: 'Piutang',
+      href: 'receivables.html',
+      roles: ['owner', 'admin']
+    },
+    {
       id: 'supplier',
       icon: '🏭',
       text: 'Supplier',

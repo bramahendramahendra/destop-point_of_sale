@@ -322,6 +322,95 @@ async function initDatabase() {
   run(createProductUnitsTable);
   console.log('Product units table created successfully');
 
+  // Create product_prices table (multi-price / harga grosir)
+  const createProductPricesTable = `
+    CREATE TABLE IF NOT EXISTS product_prices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      tier_name TEXT NOT NULL,
+      min_qty REAL NOT NULL DEFAULT 1,
+      price REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `;
+  run(createProductPricesTable);
+  console.log('Product prices table created successfully');
+
+  // Create customers table
+  const createCustomersTable = `
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      address TEXT,
+      credit_limit REAL DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  run(createCustomersTable);
+  console.log('Customers table created successfully');
+
+  // Create receivables table
+  const createReceivablesTable = `
+    CREATE TABLE IF NOT EXISTS receivables (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER NOT NULL,
+      customer_id INTEGER NOT NULL,
+      total_amount REAL NOT NULL,
+      paid_amount REAL DEFAULT 0,
+      remaining_amount REAL NOT NULL,
+      status TEXT DEFAULT 'unpaid',
+      due_date DATE,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+      FOREIGN KEY (customer_id) REFERENCES customers(id)
+    )
+  `;
+  run(createReceivablesTable);
+  console.log('Receivables table created successfully');
+
+  // Create receivable_payments table
+  const createReceivablePaymentsTable = `
+    CREATE TABLE IF NOT EXISTS receivable_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      receivable_id INTEGER NOT NULL,
+      payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      amount REAL NOT NULL,
+      payment_method TEXT DEFAULT 'cash',
+      notes TEXT,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (receivable_id) REFERENCES receivables(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `;
+  run(createReceivablePaymentsTable);
+  console.log('Receivable payments table created successfully');
+
+  // Migration: add customer_id and is_credit to transactions if not exists
+  try {
+    const trxCols = query('PRAGMA table_info(transactions)');
+    const trxColNames = trxCols.map(r => r.name);
+    if (!trxColNames.includes('customer_id')) {
+      run('ALTER TABLE transactions ADD COLUMN customer_id INTEGER REFERENCES customers(id)');
+      console.log('Migration: added customer_id to transactions');
+    }
+    if (!trxColNames.includes('is_credit')) {
+      run('ALTER TABLE transactions ADD COLUMN is_credit INTEGER DEFAULT 0');
+      console.log('Migration: added is_credit to transactions');
+    }
+  } catch (e) {
+    console.error('Migration error (transactions):', e);
+  }
+
   // Migration: add conversion_qty and unit_id to transaction_items if not exists
   try {
     const tiCols = query('PRAGMA table_info(transaction_items)');
