@@ -8,7 +8,12 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   dashboard: {
-    getStats: () => ipcRenderer.invoke('dashboard:getStats')
+    getStats:        () => ipcRenderer.invoke('dashboard:getStats'),
+    getSalesTrend:   (period) => ipcRenderer.invoke('dashboard:getSalesTrend', period),
+    getTopCategories:(period) => ipcRenderer.invoke('dashboard:getTopCategories', period),
+    getTopProducts:  (period, mode) => ipcRenderer.invoke('dashboard:getTopProducts', period, mode),
+    getPaymentMethods:(period) => ipcRenderer.invoke('dashboard:getPaymentMethods', period),
+    getSummaryExtra: (period) => ipcRenderer.invoke('dashboard:getSummaryExtra', period)
   },
 
   users: {
@@ -182,5 +187,12 @@ contextBridge.exposeInMainWorld('api', {
   menuEvents: {
     onBackup:  (cb) => ipcRenderer.on('menu:backup',  () => cb()),
     onRestore: (cb) => ipcRenderer.on('menu:restore', () => cb())
+  },
+  pinLock: {
+    hasPin:    (userId) => ipcRenderer.invoke('pinlock:hasPin', userId),
+    setPin:    (userId, pin) => ipcRenderer.invoke('pinlock:setPin', userId, pin),
+    verifyPin: (userId, pin) => ipcRenderer.invoke('pinlock:verifyPin', userId, pin),
+    changePin: (userId, oldPin, newPin) => ipcRenderer.invoke('pinlock:changePin', userId, oldPin, newPin),
+    onLockScreen: (cb) => ipcRenderer.on('pinlock:lock', () => cb())
   }
 });

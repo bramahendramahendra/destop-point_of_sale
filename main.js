@@ -136,7 +136,8 @@ app.whenReady().then(async () => {
       { key: 'CmdOrCtrl+Shift+R', channel: 'shortcut:reports' },
       { key: 'CmdOrCtrl+U', channel: 'shortcut:users' },
       { key: 'CmdOrCtrl+Shift+S', channel: 'shortcut:settings' },
-      { key: 'CmdOrCtrl+L', channel: 'shortcut:logout' }
+      { key: 'CmdOrCtrl+L', channel: 'shortcut:logout' },
+      { key: 'CmdOrCtrl+Shift+L', channel: 'pinlock:lock' }
     ];
 
     shortcuts.forEach(({ key, channel }) => {
@@ -296,6 +297,66 @@ ipcMain.handle('auth:logout', async (event) => {
 
 ipcMain.handle('auth:getCurrentUser', async (event) => {
   return currentUser;
+});
+
+// ============================================
+// PIN LOCK IPC HANDLERS
+// ============================================
+
+ipcMain.handle('pinlock:hasPin', async (event, userId) => {
+  try {
+    const user = dbModule.get('SELECT pin_hash FROM users WHERE id = ?', [userId]);
+    return { success: true, hasPin: !!(user && user.pin_hash) };
+  } catch (error) {
+    console.error('pinlock:hasPin error:', error);
+    return { success: false, hasPin: false };
+  }
+});
+
+ipcMain.handle('pinlock:setPin', async (event, userId, pin) => {
+  try {
+    const pinHash = await bcrypt.hash(pin, 10);
+    dbModule.run('UPDATE users SET pin_hash = ? WHERE id = ?', [pinHash, userId]);
+    dbModule.saveDb();
+    return { success: true };
+  } catch (error) {
+    console.error('pinlock:setPin error:', error);
+    return { success: false, message: 'Gagal menyimpan PIN' };
+  }
+});
+
+ipcMain.handle('pinlock:verifyPin', async (event, userId, pin) => {
+  try {
+    const user = dbModule.get('SELECT pin_hash FROM users WHERE id = ?', [userId]);
+    if (!user || !user.pin_hash) {
+      return { success: false, message: 'PIN belum diset' };
+    }
+    const valid = await bcrypt.compare(pin, user.pin_hash);
+    return { success: valid, message: valid ? 'OK' : 'PIN salah' };
+  } catch (error) {
+    console.error('pinlock:verifyPin error:', error);
+    return { success: false, message: 'Terjadi kesalahan' };
+  }
+});
+
+ipcMain.handle('pinlock:changePin', async (event, userId, oldPin, newPin) => {
+  try {
+    const user = dbModule.get('SELECT pin_hash FROM users WHERE id = ?', [userId]);
+    if (!user || !user.pin_hash) {
+      return { success: false, message: 'PIN lama tidak ditemukan' };
+    }
+    const valid = await bcrypt.compare(oldPin, user.pin_hash);
+    if (!valid) {
+      return { success: false, message: 'PIN lama salah' };
+    }
+    const newHash = await bcrypt.hash(newPin, 10);
+    dbModule.run('UPDATE users SET pin_hash = ? WHERE id = ?', [newHash, userId]);
+    dbModule.saveDb();
+    return { success: true };
+  } catch (error) {
+    console.error('pinlock:changePin error:', error);
+    return { success: false, message: 'Gagal mengubah PIN' };
+  }
 });
 
 // ============================================
@@ -3418,6 +3479,205 @@ ipcMain.handle('dashboard:getStats', async () => {
   } catch (error) {
     console.error('dashboard:getStats error:', error);
     return { success: false, message: 'Gagal memuat statistik dashboard' };
+  }
+});
+
+// ============================================
+// DASHBOARD CHARTS IPC HANDLERS
+// ============================================
+
+function getDashboardDateRange(period) {
+  const today = new Date();
+  const fmt = d => d.toISOString().split('T')[0];
+  switch (period) {
+    case '7days': {
+      const s = new Date(today); s.setDate(s.getDate() - 6);
+      return { start: fmt(s), end: fmt(today) };
+    }
+    case '30days': {
+      const s = new Date(today); s.setDate(s.getDate() - 29);
+      return { start: fmt(s), end: fmt(today) };
+    }
+    case 'month': {
+      const s = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start: fmt(s), end: fmt(today) };
+    }
+    default: // today
+      return { start: fmt(today), end: fmt(today) };
+  }
+}
+
+// Grafik 1 — Trend Penjualan (periode ini vs periode sebelumnya)
+ipcMain.handle('dashboard:getSalesTrend', async (event, period = '7days') => {
+  try {
+    const { start, end } = getDashboardDateRange(period);
+    const startDate = new Date(start);
+    const endDate   = new Date(end);
+    const diffDays  = Math.round((endDate - startDate) / 86400000) + 1;
+
+    const prevEnd   = new Date(startDate); prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);   prevStart.setDate(prevStart.getDate() - diffDays + 1);
+    const fmt = d => d.toISOString().split('T')[0];
+
+    const rows = dbModule.all(`
+      SELECT DATE(transaction_date) as date,
+             COALESCE(SUM(total_amount),0) as total,
+             COUNT(*) as count
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND status = 'completed'
+      GROUP BY DATE(transaction_date)
+      ORDER BY date
+    `, [start, end]);
+
+    const prevRows = dbModule.all(`
+      SELECT DATE(transaction_date) as date,
+             COALESCE(SUM(total_amount),0) as total,
+             COUNT(*) as count
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND status = 'completed'
+      GROUP BY DATE(transaction_date)
+      ORDER BY date
+    `, [fmt(prevStart), fmt(prevEnd)]);
+
+    // Buat array label (tanggal periode ini)
+    const labels = [];
+    const cur = new Date(startDate);
+    while (cur <= endDate) {
+      labels.push(fmt(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    const mapByDate = (arr) => {
+      const m = {};
+      arr.forEach(r => { m[r.date] = r; });
+      return m;
+    };
+    const curMap  = mapByDate(rows);
+    const prevMap = mapByDate(prevRows);
+
+    const currentTotals  = labels.map((d, i) => curMap[d]?.total  || 0);
+    const previousTotals = labels.map((d, i) => {
+      const pd = fmt(new Date(new Date(prevStart).setDate(prevStart.getDate() + i)));
+      return prevMap[pd]?.total || 0;
+    });
+    const currentCounts  = labels.map(d => curMap[d]?.count || 0);
+
+    return { success: true, labels, currentTotals, previousTotals, currentCounts };
+  } catch (error) {
+    console.error('dashboard:getSalesTrend error:', error);
+    return { success: false, message: 'Gagal memuat trend penjualan' };
+  }
+});
+
+// Grafik 2 — Top 5 Kategori Terlaris
+ipcMain.handle('dashboard:getTopCategories', async (event, period = 'today') => {
+  try {
+    const { start, end } = getDashboardDateRange(period);
+    const rows = dbModule.all(`
+      SELECT c.name as category,
+             COALESCE(SUM(ti.quantity * ti.price), 0) as total,
+             COALESCE(SUM(ti.quantity), 0) as qty
+      FROM transaction_items ti
+      JOIN transactions t ON t.id = ti.transaction_id
+      JOIN products p ON p.id = ti.product_id
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE DATE(t.transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND t.status = 'completed'
+      GROUP BY p.category_id
+      ORDER BY total DESC
+      LIMIT 5
+    `, [start, end]);
+    return { success: true, rows };
+  } catch (error) {
+    console.error('dashboard:getTopCategories error:', error);
+    return { success: false, message: 'Gagal memuat kategori terlaris' };
+  }
+});
+
+// Grafik 3 — Top 5 Produk Terlaris
+ipcMain.handle('dashboard:getTopProducts', async (event, period = 'today', mode = 'qty') => {
+  try {
+    const { start, end } = getDashboardDateRange(period);
+    const orderBy = mode === 'value' ? 'total DESC' : 'qty DESC';
+    const rows = dbModule.all(`
+      SELECT p.name as product,
+             COALESCE(SUM(ti.quantity), 0) as qty,
+             COALESCE(SUM(ti.quantity * ti.price), 0) as total
+      FROM transaction_items ti
+      JOIN transactions t ON t.id = ti.transaction_id
+      JOIN products p ON p.id = ti.product_id
+      WHERE DATE(t.transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND t.status = 'completed'
+      GROUP BY ti.product_id
+      ORDER BY ${orderBy}
+      LIMIT 5
+    `, [start, end]);
+    return { success: true, rows };
+  } catch (error) {
+    console.error('dashboard:getTopProducts error:', error);
+    return { success: false, message: 'Gagal memuat produk terlaris' };
+  }
+});
+
+// Grafik 4 — Metode Pembayaran
+ipcMain.handle('dashboard:getPaymentMethods', async (event, period = 'today') => {
+  try {
+    const { start, end } = getDashboardDateRange(period);
+    const rows = dbModule.all(`
+      SELECT payment_method,
+             COUNT(*) as count,
+             COALESCE(SUM(total_amount), 0) as total
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND status = 'completed'
+      GROUP BY payment_method
+      ORDER BY total DESC
+    `, [start, end]);
+    return { success: true, rows };
+  } catch (error) {
+    console.error('dashboard:getPaymentMethods error:', error);
+    return { success: false, message: 'Gagal memuat metode pembayaran' };
+  }
+});
+
+// Summary Extra — transaksi tertinggi, peak hour, rata-rata
+ipcMain.handle('dashboard:getSummaryExtra', async (event, period = 'today') => {
+  try {
+    const { start, end } = getDashboardDateRange(period);
+
+    const highest = dbModule.get(`
+      SELECT transaction_code, total_amount, transaction_date
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND status = 'completed'
+      ORDER BY total_amount DESC
+      LIMIT 1
+    `, [start, end]);
+
+    const peakHour = dbModule.get(`
+      SELECT strftime('%H', transaction_date) as hour, COUNT(*) as count
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND status = 'completed'
+      GROUP BY hour
+      ORDER BY count DESC
+      LIMIT 1
+    `, [start, end]);
+
+    const avg = dbModule.get(`
+      SELECT COALESCE(AVG(total_amount), 0) as avg_amount,
+             COUNT(*) as total_count
+      FROM transactions
+      WHERE DATE(transaction_date) BETWEEN DATE(?) AND DATE(?)
+        AND status = 'completed'
+    `, [start, end]);
+
+    return { success: true, highest, peakHour, avg };
+  } catch (error) {
+    console.error('dashboard:getSummaryExtra error:', error);
+    return { success: false, message: 'Gagal memuat summary' };
   }
 });
 

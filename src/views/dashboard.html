@@ -5,6 +5,158 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - POS Retail</title>
   <link rel="stylesheet" href="../css/style.css">
+  <!-- Chart.js via CDN (sama seperti reports.html) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ---- Dashboard Charts ---- */
+    .dashboard-charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .dashboard-chart-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+    .dashboard-chart-card.full-width {
+      grid-column: 1 / -1;
+    }
+    .dcc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid #ecf0f1;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .dcc-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 0;
+    }
+    .dcc-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .dcc-period-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      border: 1px solid #dde1e5;
+      border-radius: 4px;
+      background: #f8f9fa;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .dcc-period-btn.active,
+    .dcc-period-btn:hover {
+      background: #3498db;
+      color: #fff;
+      border-color: #3498db;
+    }
+    .dcc-toggle-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      border: 1px solid #dde1e5;
+      border-radius: 4px;
+      background: #f8f9fa;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .dcc-toggle-btn.active,
+    .dcc-toggle-btn:hover {
+      background: #8e44ad;
+      color: #fff;
+      border-color: #8e44ad;
+    }
+    .dcc-body {
+      padding: 16px 18px;
+      position: relative;
+      height: 280px;
+    }
+    .dcc-body canvas {
+      max-height: 248px;
+    }
+    /* Summary Extra Cards */
+    .summary-extra-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-extra-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      padding: 16px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .sec-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .sec-body {}
+    .sec-label {
+      font-size: 11px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sec-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 2px;
+    }
+    .sec-sub {
+      font-size: 11px;
+      color: #95a5a6;
+    }
+    /* Global period filter */
+    .charts-period-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .charts-period-bar span {
+      font-size: 13px;
+      color: #7f8c8d;
+      font-weight: 500;
+    }
+    .cpb-btn {
+      padding: 5px 14px;
+      font-size: 12px;
+      border: 1px solid #dde1e5;
+      border-radius: 6px;
+      background: #f8f9fa;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cpb-btn.active,
+    .cpb-btn:hover {
+      background: #2c3e50;
+      color: #fff;
+      border-color: #2c3e50;
+    }
+    @media (max-width: 900px) {
+      .dashboard-charts-grid { grid-template-columns: 1fr; }
+      .dashboard-chart-card.full-width { grid-column: 1; }
+      .summary-extra-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body class="dashboard-page">
   <!-- Navbar -->
@@ -24,9 +176,7 @@
       <!-- Welcome Card -->
       <div class="welcome-card">
         <h2>Selamat datang, <span id="welcomeName">User</span>! 👋</h2>
-        <p>
-          Berikut ringkasan aktivitas toko Anda hari ini.
-        </p>
+        <p>Berikut ringkasan aktivitas toko Anda hari ini.</p>
       </div>
 
       <!-- Stats Cards — Hari Ini -->
@@ -87,6 +237,103 @@
             <h3>User Aktif</h3>
             <p class="stat-value" id="statTotalUsers">0</p>
             <p class="stat-label">Total user aktif</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ GRAFIK SECTION ============ -->
+      <div class="dashboard-section-header" style="margin-top:8px;">
+        <h3 class="section-label">📊 Analitik & Grafik</h3>
+      </div>
+
+      <!-- Filter Periode Global -->
+      <div class="charts-period-bar">
+        <span>Periode:</span>
+        <button class="cpb-btn active" data-period="today">Hari Ini</button>
+        <button class="cpb-btn" data-period="7days">7 Hari</button>
+        <button class="cpb-btn" data-period="30days">30 Hari</button>
+        <button class="cpb-btn" data-period="month">Bulan Ini</button>
+      </div>
+
+      <!-- Baris 1: Trend Penjualan (full width) -->
+      <div class="dashboard-charts-grid">
+        <div class="dashboard-chart-card full-width">
+          <div class="dcc-header">
+            <h3>📈 Trend Penjualan — Periode Ini vs Sebelumnya</h3>
+            <div class="dcc-controls">
+              <button class="dcc-toggle-btn active" id="trendToggleValue" data-mode="value">Nilai (Rp)</button>
+              <button class="dcc-toggle-btn" id="trendToggleCount" data-mode="count">Jumlah Transaksi</button>
+            </div>
+          </div>
+          <div class="dcc-body" style="height:300px;">
+            <canvas id="chartSalesTrend"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Baris 2: Kategori + Metode Bayar -->
+      <div class="dashboard-charts-grid">
+        <div class="dashboard-chart-card">
+          <div class="dcc-header">
+            <h3>🏷️ Top 5 Kategori Terlaris</h3>
+          </div>
+          <div class="dcc-body">
+            <canvas id="chartTopCategories"></canvas>
+          </div>
+        </div>
+        <div class="dashboard-chart-card">
+          <div class="dcc-header">
+            <h3>💳 Distribusi Metode Pembayaran</h3>
+          </div>
+          <div class="dcc-body">
+            <canvas id="chartPaymentMethods"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Baris 3: Top Produk (full width horizontal bar) -->
+      <div class="dashboard-charts-grid">
+        <div class="dashboard-chart-card full-width">
+          <div class="dcc-header">
+            <h3>🏆 Top 5 Produk Terlaris</h3>
+            <div class="dcc-controls">
+              <button class="dcc-toggle-btn active" id="prodToggleQty" data-mode="qty">Qty Terjual</button>
+              <button class="dcc-toggle-btn" id="prodToggleValue" data-mode="value">Nilai Penjualan</button>
+            </div>
+          </div>
+          <div class="dcc-body" style="height:260px;">
+            <canvas id="chartTopProducts"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Extra -->
+      <div class="dashboard-section-header">
+        <h3 class="section-label">💡 Insight Periode Ini</h3>
+      </div>
+      <div class="summary-extra-grid">
+        <div class="summary-extra-card">
+          <div class="sec-icon">🏅</div>
+          <div class="sec-body">
+            <div class="sec-label">Transaksi Tertinggi</div>
+            <div class="sec-value" id="secHighestAmount">Rp 0</div>
+            <div class="sec-sub" id="secHighestCode">—</div>
+          </div>
+        </div>
+        <div class="summary-extra-card">
+          <div class="sec-icon">🕐</div>
+          <div class="sec-body">
+            <div class="sec-label">Jam Tersibuk (Peak Hour)</div>
+            <div class="sec-value" id="secPeakHour">—</div>
+            <div class="sec-sub" id="secPeakCount">— transaksi</div>
+          </div>
+        </div>
+        <div class="summary-extra-card">
+          <div class="sec-icon">📊</div>
+          <div class="sec-body">
+            <div class="sec-label">Rata-rata Nilai Transaksi</div>
+            <div class="sec-value" id="secAvgAmount">Rp 0</div>
+            <div class="sec-sub" id="secTotalCount">dari — transaksi</div>
           </div>
         </div>
       </div>

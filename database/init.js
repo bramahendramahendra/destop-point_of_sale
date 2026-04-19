@@ -410,6 +410,18 @@ async function initDatabase() {
   run(createReceivablePaymentsTable);
   console.log('Receivable payments table created successfully');
 
+  // Migration: add pin_hash to users if not exists
+  try {
+    const userCols = query('PRAGMA table_info(users)');
+    const userColNames = userCols.map(r => r.name);
+    if (!userColNames.includes('pin_hash')) {
+      run('ALTER TABLE users ADD COLUMN pin_hash TEXT');
+      console.log('Migration: added pin_hash to users');
+    }
+  } catch (e) {
+    console.error('Migration error (users pin_hash):', e);
+  }
+
   // Migration: add customer_id and is_credit to transactions if not exists
   try {
     const trxCols = query('PRAGMA table_info(transactions)');
