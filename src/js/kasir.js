@@ -693,13 +693,18 @@ async function processTransaction() {
       }
 
       showToast('Transaksi berhasil disimpan!', 'success');
-      
+
       // Close modal
       closePaymentModal();
-      
+
       // Clear cart
       clearCart();
-      
+
+      // Cek stok menipis pasca-transaksi
+      if (window.StockAlert) {
+        setTimeout(() => window.StockAlert.check({ afterTransaction: true }), 1200);
+      }
+
       // Open receipt
       window.api.window.openReceipt(result.transactionId);
       

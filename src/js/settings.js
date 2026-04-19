@@ -69,6 +69,10 @@ function applySettingsToForm(s) {
   document.getElementById('autoBackup').checked = autoBackup;
   setVal('backupDays', s.backup_days || '7');
 
+  // Stock notification (default: enabled)
+  const stockNotif = s.stock_notification_enabled !== '0';
+  document.getElementById('stockNotificationEnabled').checked = stockNotif;
+
   // Logo
   if (s.store_logo && s.store_logo.length > 0) {
     logoBase64 = s.store_logo;
@@ -269,7 +273,8 @@ async function handleSaveSettings() {
     receipt_footer: document.getElementById('receiptFooter').value.trim(),
     auto_backup:    document.getElementById('autoBackup').checked ? '1' : '0',
     backup_days:    String(backupDays),
-    store_logo:     logoBase64
+    store_logo:                  logoBase64,
+    stock_notification_enabled:  document.getElementById('stockNotificationEnabled').checked ? '1' : '0'
   };
 
   showLoading('Menyimpan pengaturan...');

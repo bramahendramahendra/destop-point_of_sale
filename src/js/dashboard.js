@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load stats
   await loadDashboardStats();
 
+  // Notifikasi stok otomatis saat masuk dashboard
+  if (window.StockAlert) {
+    setTimeout(() => window.StockAlert.check(), 800);
+  }
+
   // Stok menipis card click → ke laporan stok
   document.getElementById('statLowStockCard')?.addEventListener('click', () => {
     if (user && (user.role === 'owner' || user.role === 'admin')) {

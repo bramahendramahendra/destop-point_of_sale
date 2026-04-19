@@ -110,6 +110,7 @@ function renderMenu(activePage) {
           <a href="${item.href}">
             <span class="menu-icon">${item.icon}</span>
             <span class="menu-text">${item.text}</span>
+            ${item.id === 'products' ? '<span class="menu-badge" id="menuStockBadge" style="display:none">0</span>' : ''}
           </a>
         </li>
       `).join('')}
@@ -117,6 +118,28 @@ function renderMenu(activePage) {
   `;
 
   sidebar.innerHTML = menuHTML;
+
+  // Update stock badge async
+  updateMenuStockBadge();
+}
+
+async function updateMenuStockBadge() {
+  const badge = document.getElementById('menuStockBadge');
+  if (!badge || !window.api?.products?.getLowStock) return;
+
+  try {
+    const res = await window.api.products.getLowStock();
+    if (!res.success) return;
+    const count = res.products.length;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (e) {
+    // silently ignore
+  }
 }
 
 // ============================================

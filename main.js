@@ -738,6 +738,25 @@ ipcMain.handle('products:toggleStatus', async (event, id) => {
   }
 });
 
+// Get low stock products
+ipcMain.handle('products:getLowStock', async () => {
+  try {
+    const products = dbModule.all(`
+      SELECT p.id, p.name, p.stock, p.min_stock, p.unit,
+             c.name AS category_name,
+             CASE WHEN p.stock = 0 THEN 'empty' ELSE 'low' END AS status
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = 1 AND p.stock <= p.min_stock
+      ORDER BY p.stock ASC, p.name ASC
+    `);
+    return { success: true, products };
+  } catch (error) {
+    console.error('products:getLowStock error:', error);
+    return { success: false, products: [] };
+  }
+});
+
 // ============================================
 // TRANSACTIONS IPC HANDLERS
 // ============================================

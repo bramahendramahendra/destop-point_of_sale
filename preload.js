@@ -34,7 +34,8 @@ contextBridge.exposeInMainWorld('api', {
     create: (productData) => ipcRenderer.invoke('products:create', productData),
     update: (id, productData) => ipcRenderer.invoke('products:update', id, productData),
     delete: (id) => ipcRenderer.invoke('products:delete', id),
-    toggleStatus: (id) => ipcRenderer.invoke('products:toggleStatus', id)
+    toggleStatus: (id) => ipcRenderer.invoke('products:toggleStatus', id),
+    getLowStock: () => ipcRenderer.invoke('products:getLowStock')
   },
   transactions: {
     create: (transactionData) => ipcRenderer.invoke('transactions:create', transactionData),
