@@ -93,6 +93,26 @@ function setupEventListeners() {
   document.getElementById('puConversionQty').addEventListener('input', updatePuPriceHint);
   document.getElementById('puSellingPrice').addEventListener('input', updatePuPriceHint);
 
+  // Import product button (owner/admin only)
+  if (currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin')) {
+    const btnImport = document.getElementById('btnImportProduct');
+    if (btnImport) {
+      btnImport.style.display = '';
+      btnImport.addEventListener('click', openImportProductModal);
+    }
+  }
+  document.getElementById('closeImportProductModal').addEventListener('click', closeImportProductModal);
+  document.getElementById('btnCancelImport').addEventListener('click', closeImportProductModal);
+  document.getElementById('btnCancelImport2').addEventListener('click', closeImportProductModal);
+  document.getElementById('btnCloseImportResult').addEventListener('click', closeImportProductModal);
+  document.getElementById('btnDownloadTemplate').addEventListener('click', downloadImportTemplate);
+  document.getElementById('btnParseImport').addEventListener('click', parseImportFile);
+  document.getElementById('btnBackImport').addEventListener('click', () => showImportStep(1));
+  document.getElementById('btnProcessImport').addEventListener('click', processImport);
+  document.querySelectorAll('input[name="importFilter"]').forEach(r => {
+    r.addEventListener('change', renderImportPreview);
+  });
+
   // Label print buttons
   document.getElementById('btnBulkPrintLabel').addEventListener('click', openLabelPrintModal);
   document.getElementById('closeLabelPrintModal').addEventListener('click', closeLabelPrintModal);
@@ -128,6 +148,8 @@ function setupEventListeners() {
     if (e.target === productUnitModal) closeProductUnitModal();
     if (e.target === productPriceModal) closeProductPriceModal();
     if (e.target === labelPrintModal) closeLabelPrintModal();
+    const importModal = document.getElementById('importProductModal');
+    if (e.target === importModal) closeImportProductModal();
   });
 }
 
@@ -1538,4 +1560,246 @@ function doLabelPrint() {
 
   closeLabelPrintModal();
   showToast('Window cetak label dibuka', 'success');
+}
+
+// ============================================
+// IMPORT PRODUK VIA EXCEL/CSV
+// ============================================
+
+let importParsedRows = [];   // raw parsed rows
+let importValidated = [];    // [{rowNum, data, errors:[]}]
+
+function openImportProductModal() {
+  importParsedRows = [];
+  importValidated = [];
+  document.getElementById('importFileInput').value = '';
+  document.getElementById('importFileError').classList.add('hidden');
+  document.getElementById('importFileError').textContent = '';
+  showImportStep(1);
+  document.getElementById('importProductModal').classList.add('active');
+}
+
+function closeImportProductModal() {
+  document.getElementById('importProductModal').classList.remove('active');
+}
+
+function showImportStep(step) {
+  document.getElementById('importStep1').classList.add('hidden');
+  document.getElementById('importStep2').classList.add('hidden');
+  document.getElementById('importStep3').classList.add('hidden');
+  document.getElementById(`importStep${step}`).classList.remove('hidden');
+}
+
+function downloadImportTemplate() {
+  const headers = ['nama', 'barcode', 'kategori', 'harga_beli', 'harga_jual', 'stok', 'stok_minimum', 'satuan'];
+  const example = ['Contoh Produk A', 'PROD-00001', 'Minuman', 5000, 7000, 100, 10, 'pcs'];
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+  ws['!cols'] = headers.map(() => ({ wch: 18 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, 'template_import_produk.xlsx');
+}
+
+function parseImportFile() {
+  const fileInput = document.getElementById('importFileInput');
+  const errEl = document.getElementById('importFileError');
+  errEl.classList.add('hidden');
+
+  if (!fileInput.files || !fileInput.files[0]) {
+    errEl.textContent = 'Pilih file terlebih dahulu.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['xlsx', 'csv'].includes(ext)) {
+    errEl.textContent = 'Format file tidak didukung. Gunakan .xlsx atau .csv';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows || rows.length === 0) {
+        errEl.textContent = 'File kosong atau tidak ada data.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      // Normalize header keys (trim + lowercase)
+      importParsedRows = rows.map(r => {
+        const norm = {};
+        for (const k in r) norm[k.trim().toLowerCase().replace(/\s+/g, '_')] = r[k];
+        return norm;
+      });
+
+      validateImportRows();
+      renderImportPreview();
+      showImportStep(2);
+    } catch (err) {
+      errEl.textContent = 'Gagal membaca file: ' + err.message;
+      errEl.classList.remove('hidden');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function validateImportRows() {
+  const existingBarcodes = new Set(allProducts.map(p => String(p.barcode).toLowerCase()));
+  const seenBarcodes = new Set();
+  const categoryNames = new Set(allCategories.map(c => c.name.toLowerCase()));
+
+  importValidated = importParsedRows.map((row, idx) => {
+    const errors = [];
+    const nama = String(row.nama || '').trim();
+    const barcode = String(row.barcode || '').trim();
+    const kategori = String(row.kategori || '').trim();
+    const harga_beli = parseFloat(row.harga_beli) || 0;
+    const harga_jual = parseFloat(row.harga_jual) || 0;
+
+    if (!nama) errors.push('Nama kosong');
+    if (!barcode) {
+      errors.push('Barcode kosong');
+    } else {
+      if (existingBarcodes.has(barcode.toLowerCase())) errors.push(`Barcode "${barcode}" sudah ada di database`);
+      if (seenBarcodes.has(barcode.toLowerCase())) errors.push(`Barcode "${barcode}" duplikat dalam file`);
+      seenBarcodes.add(barcode.toLowerCase());
+    }
+    if (kategori && !categoryNames.has(kategori.toLowerCase())) {
+      errors.push(`Kategori "${kategori}" tidak ditemukan`);
+    }
+    if (harga_jual < harga_beli) errors.push('Harga jual < harga beli');
+    if (!row.satuan) errors.push('Satuan kosong');
+
+    return { rowNum: idx + 2, data: row, errors };
+  });
+}
+
+function renderImportPreview() {
+  const filter = document.querySelector('input[name="importFilter"]:checked').value;
+  const tbody = document.getElementById('importPreviewBody');
+
+  const totalRows = importValidated.length;
+  const errorRows = importValidated.filter(r => r.errors.length > 0).length;
+  const validRows = totalRows - errorRows;
+
+  document.getElementById('importSummaryBar').innerHTML =
+    `Total: <strong>${totalRows}</strong> baris &nbsp;|&nbsp; ` +
+    `<span style="color:#16a34a;">✅ Valid: <strong>${validRows}</strong></span> &nbsp;|&nbsp; ` +
+    `<span style="color:#dc2626;">❌ Error: <strong>${errorRows}</strong></span>`;
+
+  let rows = importValidated;
+  if (filter === 'valid') rows = importValidated.filter(r => r.errors.length === 0);
+  if (filter === 'error') rows = importValidated.filter(r => r.errors.length > 0);
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center" style="color:#888;">Tidak ada data</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const isError = r.errors.length > 0;
+    const statusCell = isError
+      ? `<td><span class="badge badge-danger" title="${r.errors.join('; ')}">❌ Error</span></td>`
+      : `<td><span class="badge badge-success">✅ Valid</span></td>`;
+    const rowStyle = isError ? 'background:#fff5f5;' : '';
+    const d = r.data;
+    return `<tr style="${rowStyle}">
+      <td>${r.rowNum}</td>
+      <td>${escHtml(String(d.nama || ''))}</td>
+      <td>${escHtml(String(d.barcode || ''))}</td>
+      <td>${escHtml(String(d.kategori || ''))}</td>
+      <td>${formatRupiah(parseFloat(d.harga_beli) || 0)}</td>
+      <td>${formatRupiah(parseFloat(d.harga_jual) || 0)}</td>
+      <td>${d.stok || 0}</td>
+      <td>${d.stok_minimum || 5}</td>
+      <td>${escHtml(String(d.satuan || ''))}</td>
+      ${statusCell}
+    </tr>` + (isError ? `<tr style="background:#fff5f5;"><td colspan="10" style="font-size:12px;color:#dc2626;padding:2px 12px 8px;">↳ ${r.errors.join(' · ')}</td></tr>` : '');
+  }).join('');
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function processImport() {
+  const errorRows = importValidated.filter(r => r.errors.length > 0);
+  const skipErrors = document.getElementById('importSkipErrors').checked;
+  const processEl = document.getElementById('importProcessError');
+  processEl.classList.add('hidden');
+
+  if (errorRows.length > 0 && !skipErrors) {
+    processEl.textContent = `Ada ${errorRows.length} baris error. Centang "Skip baris error" atau perbaiki data terlebih dahulu.`;
+    processEl.classList.remove('hidden');
+    return;
+  }
+
+  const validRows = importValidated.filter(r => r.errors.length === 0).map(r => r.data);
+  if (validRows.length === 0) {
+    processEl.textContent = 'Tidak ada baris valid untuk diproses.';
+    processEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('btnProcessImport');
+  btn.disabled = true;
+  btn.textContent = 'Memproses...';
+
+  try {
+    const result = await window.api.products.importBulk(validRows);
+    btn.disabled = false;
+    btn.textContent = '✅ Proses Import';
+
+    if (!result.success) {
+      processEl.textContent = result.message || 'Terjadi kesalahan saat import.';
+      processEl.classList.remove('hidden');
+      return;
+    }
+
+    const { results } = result;
+    let html = `<div style="margin-bottom:14px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
+      <div style="font-size:16px;font-weight:700;color:#15803d;margin-bottom:4px;">Import Selesai</div>
+      <div>✅ Berhasil: <strong>${results.success}</strong> produk</div>
+      <div>❌ Gagal: <strong>${results.failed.length}</strong> baris</div>
+    </div>`;
+
+    if (results.failed.length > 0) {
+      html += `<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Detail baris gagal:</div>
+      <div class="table-container" style="max-height:220px;overflow-y:auto;">
+        <table class="data-table">
+          <thead><tr><th>Baris</th><th>Nama</th><th>Barcode</th><th>Alasan</th></tr></thead>
+          <tbody>
+            ${results.failed.map(f => `<tr>
+              <td>${f.baris}</td>
+              <td>${escHtml(String(f.data.nama || ''))}</td>
+              <td>${escHtml(String(f.data.barcode || ''))}</td>
+              <td style="color:#dc2626;">${escHtml(f.alasan)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    document.getElementById('importResultContent').innerHTML = html;
+    showImportStep(3);
+
+    if (results.success > 0) {
+      await loadProducts();
+      showToast(`${results.success} produk berhasil diimport`, 'success');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ Proses Import';
+    processEl.textContent = 'Terjadi kesalahan: ' + err.message;
+    processEl.classList.remove('hidden');
+  }
 }

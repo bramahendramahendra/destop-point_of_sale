@@ -38,6 +38,9 @@
           <button class="btn btn-secondary" id="btnBulkPrintLabel" style="display:none;">
             <span>🏷️</span> Cetak Label Terpilih (<span id="selectedCount">0</span>)
           </button>
+          <button class="btn btn-secondary" id="btnImportProduct" style="display:none;">
+            <span>📥</span> Import Produk
+          </button>
         </div>
 
         <!-- Filters -->
@@ -549,7 +552,105 @@
     </div>
   </div>
 
+  <!-- Modal Import Produk -->
+  <div id="importProductModal" class="modal">
+    <div class="modal-content modal-large" style="max-width:900px;">
+      <div class="modal-header">
+        <h2>Import Produk via Excel / CSV</h2>
+        <button class="modal-close" id="closeImportProductModal">&times;</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Step 1: Upload -->
+        <div id="importStep1">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary" id="btnDownloadTemplate">
+              📄 Download Template Excel
+            </button>
+            <span style="color:#888;font-size:13px;">Download template, isi data, lalu upload kembali.</span>
+          </div>
+
+          <div class="form-group">
+            <label>Upload File Excel (.xlsx) atau CSV (.csv)</label>
+            <input type="file" id="importFileInput" accept=".xlsx,.csv" class="form-control" style="padding:8px;">
+          </div>
+
+          <div id="importFileError" class="error-message hidden"></div>
+
+          <div class="modal-footer" style="padding-top:12px;">
+            <button type="button" class="btn btn-secondary" id="btnCancelImport">Batal</button>
+            <button type="button" class="btn btn-primary" id="btnParseImport">Lanjut &rarr; Preview</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Preview & Validasi -->
+        <div id="importStep2" class="hidden">
+          <div id="importSummaryBar" style="margin-bottom:12px;padding:10px 14px;border-radius:6px;background:#f0f9ff;border:1px solid #bae6fd;font-size:13px;"></div>
+
+          <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:13px;font-weight:600;">Tampilkan:</label>
+            <label style="font-size:13px;cursor:pointer;">
+              <input type="radio" name="importFilter" value="all" checked> Semua
+            </label>
+            <label style="font-size:13px;cursor:pointer;">
+              <input type="radio" name="importFilter" value="valid"> Valid saja
+            </label>
+            <label style="font-size:13px;cursor:pointer;">
+              <input type="radio" name="importFilter" value="error"> Error saja
+            </label>
+          </div>
+
+          <div class="table-container" style="max-height:340px;overflow-y:auto;">
+            <table class="data-table" id="importPreviewTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nama</th>
+                  <th>Barcode</th>
+                  <th>Kategori</th>
+                  <th>Harga Beli</th>
+                  <th>Harga Jual</th>
+                  <th>Stok</th>
+                  <th>Stok Min</th>
+                  <th>Satuan</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="importPreviewBody"></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <label style="font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="importSkipErrors" checked>
+              Skip baris error, proses yang valid saja
+            </label>
+            <span style="font-size:12px;color:#888;">(Hilangkan centang untuk batalkan semua jika ada error)</span>
+          </div>
+
+          <div id="importProcessError" class="error-message hidden"></div>
+
+          <div class="modal-footer" style="padding-top:12px;">
+            <button type="button" class="btn btn-secondary" id="btnBackImport">&larr; Kembali</button>
+            <button type="button" class="btn btn-secondary" id="btnCancelImport2">Batal</button>
+            <button type="button" class="btn btn-primary" id="btnProcessImport">✅ Proses Import</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Hasil -->
+        <div id="importStep3" class="hidden">
+          <div id="importResultContent" style="font-size:14px;"></div>
+          <div class="modal-footer" style="padding-top:12px;">
+            <button type="button" class="btn btn-primary" id="btnCloseImportResult">Tutup</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/utils.js"></script>
   <script src="../js/menu.js"></script>
   <script src="../js/notification.js"></script>

@@ -758,6 +758,74 @@ ipcMain.handle('products:getLowStock', async () => {
   }
 });
 
+// Bulk import products
+ipcMain.handle('products:importBulk', async (event, rows) => {
+  const results = { success: 0, failed: [] };
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      // Resolve category_id from name
+      let category_id = null;
+      if (row.kategori) {
+        const cat = dbModule.get('SELECT id FROM categories WHERE LOWER(name) = LOWER(?)', [row.kategori.trim()]);
+        if (!cat) {
+          results.failed.push({ baris: i + 2, data: row, alasan: `Kategori "${row.kategori}" tidak ditemukan` });
+          continue;
+        }
+        category_id = cat.id;
+      }
+
+      // Validate prices
+      const purchasePrice = parseFloat(row.harga_beli) || 0;
+      const sellingPrice = parseFloat(row.harga_jual) || 0;
+      if (sellingPrice < purchasePrice) {
+        results.failed.push({ baris: i + 2, data: row, alasan: 'Harga jual tidak boleh lebih kecil dari harga beli' });
+        continue;
+      }
+
+      // Check barcode uniqueness
+      const barcode = String(row.barcode || '').trim();
+      if (!barcode) {
+        results.failed.push({ baris: i + 2, data: row, alasan: 'Barcode wajib diisi' });
+        continue;
+      }
+      const existing = dbModule.get('SELECT id FROM products WHERE barcode = ?', [barcode]);
+      if (existing) {
+        results.failed.push({ baris: i + 2, data: row, alasan: `Barcode "${barcode}" sudah digunakan` });
+        continue;
+      }
+
+      const name = String(row.nama || '').trim();
+      if (!name) {
+        results.failed.push({ baris: i + 2, data: row, alasan: 'Nama produk wajib diisi' });
+        continue;
+      }
+
+      dbModule.run(
+        `INSERT INTO products (barcode, name, category_id, purchase_price, selling_price, stock, min_stock, unit, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [
+          barcode,
+          name,
+          category_id,
+          purchasePrice,
+          sellingPrice,
+          parseInt(row.stok) || 0,
+          parseInt(row.stok_minimum) || 5,
+          String(row.satuan || 'pcs').trim()
+        ]
+      );
+      results.success++;
+    } catch (err) {
+      console.error('importBulk row error:', err);
+      results.failed.push({ baris: i + 2, data: row, alasan: err.message || 'Kesalahan tidak diketahui' });
+    }
+  }
+
+  return { success: true, results };
+});
+
 // ============================================
 // TRANSACTIONS IPC HANDLERS
 // ============================================
