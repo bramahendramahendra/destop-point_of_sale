@@ -901,7 +901,10 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
         unit_id: item.unit_id || null,
         conversion_qty: item.conversion_qty || 1,
         price: item.price || 0,
-        subtotal: item.subtotal || 0
+        subtotal: item.subtotal || 0,
+        discount_item: item.discount_item || 0,
+        discount_item_type: item.discount_item_type || 'none',
+        discount_item_amount: item.discount_item_amount || 0
       };
 
       // Stock deduction in base unit (quantity * conversion_qty)
@@ -911,8 +914,9 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
       dbModule.run(
         `INSERT INTO transaction_items (
           transaction_id, product_id, product_name, barcode,
-          quantity, unit, unit_id, conversion_qty, price, subtotal
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          quantity, unit, unit_id, conversion_qty, price, subtotal,
+          discount_item, discount_item_type, discount_item_amount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           itemData.transaction_id,
           itemData.product_id,
@@ -923,7 +927,10 @@ ipcMain.handle('transactions:create', async (event, transactionData) => {
           itemData.unit_id,
           itemData.conversion_qty,
           itemData.price,
-          itemData.subtotal
+          itemData.subtotal,
+          itemData.discount_item,
+          itemData.discount_item_type,
+          itemData.discount_item_amount
         ]
       );
 

@@ -244,15 +244,28 @@ function displayTransactionDetail(transaction) {
 
   // Items
   const itemsBody = document.getElementById('detailItemsBody');
-  itemsBody.innerHTML = transaction.items.map((item, index) => `
+  itemsBody.innerHTML = transaction.items.map((item, index) => {
+    const hasDisc = item.discount_item_amount && item.discount_item_amount > 0;
+    const discLabel = hasDisc
+      ? (item.discount_item_type === 'percent'
+          ? ` <span class="badge badge-danger" style="font-size:10px;">Diskon ${item.discount_item}%</span>`
+          : ` <span class="badge badge-danger" style="font-size:10px;">Diskon -${formatCurrency(item.discount_item_amount)}</span>`)
+      : '';
+    return `
     <tr>
       <td>${index + 1}</td>
-      <td>${escapeHtml(item.product_name)}</td>
-      <td>${formatCurrency(item.price)}</td>
+      <td>${escapeHtml(item.product_name)}${discLabel}</td>
+      <td>
+        ${hasDisc
+          ? `<span style="text-decoration:line-through;color:#aaa;font-size:11px;">${formatCurrency(item.price)}</span><br>${formatCurrency(item.price - item.discount_item_amount / item.quantity)}`
+          : formatCurrency(item.price)
+        }
+      </td>
       <td>${item.quantity} ${item.unit}</td>
       <td><strong>${formatCurrency(item.subtotal)}</strong></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   // Payment summary
   document.getElementById('detailSubtotal').textContent = formatCurrency(transaction.subtotal);

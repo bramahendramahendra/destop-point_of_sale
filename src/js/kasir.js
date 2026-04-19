@@ -120,6 +120,9 @@ function setupEventListeners() {
     if (e.target === document.getElementById('unitSelectModal')) {
       closeUnitSelectModal();
     }
+    if (!e.target.closest('#itemDiscountPopup') && !e.target.closest('.btn-item-discount')) {
+      closeItemDiscountPopup();
+    }
   });
 
   // Keyboard shortcuts
@@ -331,7 +334,18 @@ async function updateCartItemQty(index, newQty) {
   cart[index].price = activeTier.price;
   cart[index].active_tier = activeTier.tier_name;
   cart[index].is_default_price = activeTier.is_default;
-  cart[index].subtotal = newQty * activeTier.price;
+
+  // Recalculate item discount amount if exists
+  const discType = cart[index].discount_item_type;
+  const discVal = cart[index].discount_item || 0;
+  if (discType === 'percent' && discVal > 0) {
+    cart[index].discount_item_amount = (activeTier.price * newQty * discVal) / 100;
+  } else if (discType === 'amount' && discVal > 0) {
+    cart[index].discount_item_amount = Math.min(discVal, activeTier.price * newQty);
+  }
+
+  const discAmt = cart[index].discount_item_amount || 0;
+  cart[index].subtotal = newQty * activeTier.price - discAmt;
 
   renderCart();
   calculateTotal();
@@ -350,6 +364,7 @@ function clearCart() {
   productPricesCache = {};
   currentDiscount = { type: 'none', value: 0, amount: 0 };
   currentTax = { percent: 0, amount: 0 };
+  closeItemDiscountPopup();
 
   document.getElementById('discountValue').value = '';
   document.getElementById('taxPercent').value = '';
@@ -422,11 +437,11 @@ function updateCreditInfo() {
 
 function renderCart() {
   const tbody = document.getElementById('cartTableBody');
-  
+
   if (cart.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="text-center empty-cart">
+        <td colspan="8" class="text-center empty-cart">
           Keranjang masih kosong<br>
           <small>Scan barcode atau cari produk untuk mulai transaksi</small>
         </td>
@@ -439,17 +454,26 @@ function renderCart() {
     const tierBadge = item.active_tier && !item.is_default_price
       ? `<br><span class="badge badge-warning" style="font-size:10px; margin-top:2px;">${escapeHtml(item.active_tier)}</span>`
       : '';
+
+    const hasItemDiscount = item.discount_item_amount && item.discount_item_amount > 0;
+    const discountBadge = hasItemDiscount
+      ? `<br><span class="badge badge-danger" style="font-size:10px; margin-top:2px;">Diskon: -${formatCurrency(item.discount_item_amount)}</span>`
+      : '';
+    const priceDisplay = hasItemDiscount
+      ? `<span style="text-decoration:line-through; color:#aaa; font-size:11px;">${formatCurrency(item.price)}</span><br><strong style="color:#e74c3c;">${formatCurrency(item.price - (item.discount_item_amount / item.quantity))}</strong>`
+      : formatCurrency(item.price);
+
     return `
     <tr>
       <td>${index + 1}</td>
-      <td>${escapeHtml(item.product_name)}${tierBadge}</td>
+      <td>${escapeHtml(item.product_name)}${tierBadge}${discountBadge}</td>
       <td>
         <button class="btn-unit-select" onclick="changeCartItemUnit(${index})" title="Ganti satuan">
           ${escapeHtml(item.unit)}
           <span style="font-size:10px; opacity:0.6;">▼</span>
         </button>
       </td>
-      <td>${formatCurrency(item.price)}</td>
+      <td>${priceDisplay}</td>
       <td>
         <div class="qty-controls">
           <button class="btn-qty" onclick="updateCartItemQty(${index}, ${item.quantity - 1})">-</button>
@@ -465,6 +489,11 @@ function renderCart() {
       </td>
       <td><strong>${formatCurrency(item.subtotal)}</strong></td>
       <td>
+        <button class="btn-item-discount ${hasItemDiscount ? 'active' : ''}" onclick="openItemDiscountPopup(${index})" title="Diskon item">
+          🏷️
+        </button>
+      </td>
+      <td>
         <button class="btn-remove" onclick="removeCartItem(${index})" title="Hapus">
           ❌
         </button>
@@ -472,6 +501,114 @@ function renderCart() {
     </tr>
   `;
   }).join('');
+}
+
+// ============================================
+// ITEM DISCOUNT
+// ============================================
+
+let _activeDiscountIndex = -1;
+
+function openItemDiscountPopup(index) {
+  closeItemDiscountPopup();
+  _activeDiscountIndex = index;
+  const item = cart[index];
+
+  const popup = document.createElement('div');
+  popup.id = 'itemDiscountPopup';
+  popup.className = 'item-discount-popup';
+
+  const discType = item.discount_item_type || 'percent';
+  const discVal = item.discount_item || 0;
+
+  popup.innerHTML = `
+    <div class="item-discount-popup-inner">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong style="font-size:13px;">Diskon: ${escapeHtml(item.product_name)}</strong>
+        <button onclick="closeItemDiscountPopup()" style="background:none;border:none;cursor:pointer;font-size:16px;line-height:1;">×</button>
+      </div>
+      <div style="display:flex; gap:4px; margin-bottom:8px;">
+        <button id="idpTypePct" class="btn-toggle ${discType === 'percent' ? 'active' : ''}" onclick="setItemDiscountType('percent')">%</button>
+        <button id="idpTypeAmt" class="btn-toggle ${discType === 'amount' ? 'active' : ''}" onclick="setItemDiscountType('amount')">Rp</button>
+      </div>
+      <input id="idpValue" type="number" class="form-control" style="width:100%; margin-bottom:8px;" min="0" step="1" value="${discVal}" placeholder="0">
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-primary" style="flex:1; padding:6px;" onclick="applyItemDiscount()">Terapkan</button>
+        <button class="btn btn-danger" style="padding:6px 10px;" onclick="removeItemDiscount(${index})" title="Hapus diskon">🗑</button>
+      </div>
+    </div>
+  `;
+
+  // Position popup relative to clicked row
+  const rows = document.querySelectorAll('#cartTableBody tr');
+  const targetRow = rows[index];
+  if (targetRow) {
+    const rect = targetRow.getBoundingClientRect();
+    const cartContainer = document.querySelector('.cart-container');
+    const containerRect = cartContainer.getBoundingClientRect();
+    popup.style.top = (rect.bottom - containerRect.top + cartContainer.scrollTop + 4) + 'px';
+    popup.style.right = '8px';
+    cartContainer.style.position = 'relative';
+    cartContainer.appendChild(popup);
+  } else {
+    document.body.appendChild(popup);
+  }
+
+  document.getElementById('idpValue').focus();
+  document.getElementById('idpValue').select();
+}
+
+function closeItemDiscountPopup() {
+  const existing = document.getElementById('itemDiscountPopup');
+  if (existing) existing.remove();
+  _activeDiscountIndex = -1;
+}
+
+function setItemDiscountType(type) {
+  document.getElementById('idpTypePct') && document.getElementById('idpTypePct').classList.toggle('active', type === 'percent');
+  document.getElementById('idpTypeAmt') && document.getElementById('idpTypeAmt').classList.toggle('active', type === 'amount');
+  if (_activeDiscountIndex >= 0) {
+    cart[_activeDiscountIndex].discount_item_type = type;
+  }
+}
+
+function applyItemDiscount() {
+  if (_activeDiscountIndex < 0) return;
+  const index = _activeDiscountIndex;
+  const item = cart[index];
+  const value = parseFloat(document.getElementById('idpValue').value) || 0;
+  const type = cart[index].discount_item_type || 'percent';
+
+  let amount = 0;
+  if (type === 'percent') {
+    amount = (item.price * item.quantity * value) / 100;
+  } else {
+    amount = value;
+  }
+
+  // Diskon tidak boleh melebihi subtotal item
+  amount = Math.min(amount, item.price * item.quantity);
+
+  cart[index].discount_item = value;
+  cart[index].discount_item_type = type;
+  cart[index].discount_item_amount = amount;
+  cart[index].subtotal = (item.price * item.quantity) - amount;
+
+  closeItemDiscountPopup();
+  renderCart();
+  calculateTotal();
+  saveDraft();
+}
+
+function removeItemDiscount(index) {
+  cart[index].discount_item = 0;
+  cart[index].discount_item_type = 'none';
+  cart[index].discount_item_amount = 0;
+  cart[index].subtotal = cart[index].price * cart[index].quantity;
+  closeItemDiscountPopup();
+  renderCart();
+  calculateTotal();
+  saveDraft();
 }
 
 // ============================================
@@ -637,7 +774,10 @@ async function processTransaction() {
     unit_id: item.unit_id || null,
     conversion_qty: item.conversion_qty || 1,
     price: item.price,
-    subtotal: item.subtotal
+    subtotal: item.subtotal,
+    discount_item: item.discount_item || 0,
+    discount_item_type: item.discount_item_type || 'none',
+    discount_item_amount: item.discount_item_amount || 0
   }));
 
   const customerId = isCredit ? (parseInt(document.getElementById('customerSelect').value) || null) : null;

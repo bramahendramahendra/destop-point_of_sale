@@ -65,16 +65,29 @@ function displayReceipt(transaction) {
 
   // Items
   const itemsBody = document.getElementById('receiptItemsBody');
-  itemsBody.innerHTML = transaction.items.map(item => `
+  itemsBody.innerHTML = transaction.items.map(item => {
+    const hasDisc = item.discount_item_amount && item.discount_item_amount > 0;
+    const discLabel = hasDisc
+      ? (item.discount_item_type === 'percent'
+          ? `Diskon ${item.discount_item}%`
+          : `Diskon`)
+      : '';
+    return `
     <tr>
       <td colspan="3" class="item-name">${escapeHtml(item.product_name)}</td>
     </tr>
     <tr>
       <td class="item-qty">${item.quantity} ${item.unit}</td>
       <td class="item-price">@ ${formatCurrency(item.price)}</td>
-      <td class="item-subtotal">${formatCurrency(item.subtotal)}</td>
+      <td class="item-subtotal">${formatCurrency(item.price * item.quantity)}</td>
     </tr>
-  `).join('');
+    ${hasDisc ? `
+    <tr>
+      <td colspan="2" class="item-discount-label" style="font-size:11px; color:#666; padding-left:4px;">  ${discLabel}</td>
+      <td class="item-subtotal" style="font-size:11px; color:#e74c3c;">-${formatCurrency(item.discount_item_amount)}</td>
+    </tr>` : ''}
+  `;
+  }).join('');
 
   // Summary
   document.getElementById('receiptSubtotal').textContent = formatCurrency(transaction.subtotal);

@@ -450,6 +450,18 @@ async function initDatabase() {
       run('ALTER TABLE transaction_items ADD COLUMN unit_id INTEGER');
       console.log('Migration: added unit_id to transaction_items');
     }
+    if (!colNames.includes('discount_item')) {
+      run('ALTER TABLE transaction_items ADD COLUMN discount_item REAL DEFAULT 0');
+      console.log('Migration: added discount_item to transaction_items');
+    }
+    if (!colNames.includes('discount_item_type')) {
+      run("ALTER TABLE transaction_items ADD COLUMN discount_item_type TEXT DEFAULT 'none'");
+      console.log('Migration: added discount_item_type to transaction_items');
+    }
+    if (!colNames.includes('discount_item_amount')) {
+      run('ALTER TABLE transaction_items ADD COLUMN discount_item_amount REAL DEFAULT 0');
+      console.log('Migration: added discount_item_amount to transaction_items');
+    }
   } catch (e) {
     console.error('Migration error (transaction_items):', e);
   }
