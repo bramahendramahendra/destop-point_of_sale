@@ -10,6 +10,10 @@ let editingUnitId = null;
 let productUnitRows = [];
 let puEditIndex = null;
 
+// Label print state
+let selectedProductIds = new Set();
+let labelPrintProducts = [];
+
 // Check authentication on page load
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Products page loaded');
@@ -89,6 +93,26 @@ function setupEventListeners() {
   document.getElementById('puConversionQty').addEventListener('input', updatePuPriceHint);
   document.getElementById('puSellingPrice').addEventListener('input', updatePuPriceHint);
 
+  // Label print buttons
+  document.getElementById('btnBulkPrintLabel').addEventListener('click', openLabelPrintModal);
+  document.getElementById('closeLabelPrintModal').addEventListener('click', closeLabelPrintModal);
+  document.getElementById('btnCancelLabelPrint').addEventListener('click', closeLabelPrintModal);
+  document.getElementById('btnRefreshLabelPreview').addEventListener('click', renderLabelPreview);
+  document.getElementById('btnDoLabelPrint').addEventListener('click', doLabelPrint);
+  document.getElementById('labelSize').addEventListener('change', renderLabelPreview);
+
+  // Check-all checkbox
+  document.getElementById('checkAllProducts').addEventListener('change', function () {
+    const visible = document.querySelectorAll('.product-row-check');
+    visible.forEach(cb => {
+      cb.checked = this.checked;
+      const id = parseInt(cb.dataset.id);
+      if (this.checked) selectedProductIds.add(id);
+      else selectedProductIds.delete(id);
+    });
+    updateBulkLabelBtn();
+  });
+
   // Close modal when clicking outside
   window.addEventListener('click', (e) => {
     const productModal = document.getElementById('productModal');
@@ -96,12 +120,14 @@ function setupEventListeners() {
     const unitModal = document.getElementById('unitModal');
     const productUnitModal = document.getElementById('productUnitModal');
     const productPriceModal = document.getElementById('productPriceModal');
+    const labelPrintModal = document.getElementById('labelPrintModal');
 
     if (e.target === productModal) closeProductModal();
     if (e.target === categoryModal) closeCategoryModal();
     if (e.target === unitModal) closeUnitModal();
     if (e.target === productUnitModal) closeProductUnitModal();
     if (e.target === productPriceModal) closeProductPriceModal();
+    if (e.target === labelPrintModal) closeLabelPrintModal();
   });
 }
 
@@ -367,11 +393,11 @@ async function loadProducts() {
 
 function renderProductsTable(products) {
   const tbody = document.getElementById('productsTableBody');
-  
+
   if (products.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="10" class="text-center">Tidak ada data produk</td>
+        <td colspan="11" class="text-center">Tidak ada data produk</td>
       </tr>
     `;
     return;
@@ -380,9 +406,14 @@ function renderProductsTable(products) {
   tbody.innerHTML = products.map(product => {
     const margin = calculateMargin(product.purchase_price, product.selling_price);
     const stockStatus = getStockStatus(product.stock, product.min_stock);
-    
+    const checked = selectedProductIds.has(product.id) ? 'checked' : '';
+
     return `
       <tr>
+        <td style="text-align:center;">
+          <input type="checkbox" class="product-row-check" data-id="${product.id}" ${checked}
+            onchange="onProductCheckChange(this)">
+        </td>
         <td><code>${escapeHtml(product.barcode)}</code></td>
         <td>${escapeHtml(product.name)}</td>
         <td>${escapeHtml(product.category_name || '-')}</td>
@@ -408,15 +439,18 @@ function renderProductsTable(products) {
           <button class="btn-icon" onclick="editProduct(${product.id})" title="Edit">
             ✏️
           </button>
-          <button 
-            class="btn-icon" 
+          <button class="btn-icon" onclick="openSingleLabelPrint(${product.id})" title="Cetak Label">
+            🏷️
+          </button>
+          <button
+            class="btn-icon"
             onclick="toggleProductStatus(${product.id}, ${product.is_active})"
             title="${product.is_active ? 'Nonaktifkan' : 'Aktifkan'}"
           >
             ${product.is_active ? '🔓' : '🔒'}
           </button>
-          <button 
-            class="btn-icon" 
+          <button
+            class="btn-icon"
             onclick="confirmDeleteProduct(${product.id}, '${escapeHtml(product.name)}')"
             title="Hapus"
           >
@@ -1265,4 +1299,243 @@ function showPpFormError(message) {
   const el = document.getElementById('productPriceFormError');
   el.textContent = message;
   el.style.display = 'block';
+}
+
+// ============================================
+// CETAK LABEL BARCODE
+// ============================================
+
+function onProductCheckChange(checkbox) {
+  const id = parseInt(checkbox.dataset.id);
+  if (checkbox.checked) selectedProductIds.add(id);
+  else selectedProductIds.delete(id);
+  updateBulkLabelBtn();
+}
+
+function updateBulkLabelBtn() {
+  const btn = document.getElementById('btnBulkPrintLabel');
+  const span = document.getElementById('selectedCount');
+  const count = selectedProductIds.size;
+  span.textContent = count;
+  btn.style.display = count > 0 ? 'inline-flex' : 'none';
+}
+
+function openSingleLabelPrint(productId) {
+  selectedProductIds.clear();
+  selectedProductIds.add(productId);
+  updateBulkLabelBtn();
+  openLabelPrintModal();
+}
+
+async function openLabelPrintModal() {
+  if (selectedProductIds.size === 0) {
+    showToast('Pilih minimal 1 produk terlebih dahulu', 'error');
+    return;
+  }
+
+  // Collect product data dari allProducts
+  labelPrintProducts = allProducts.filter(p => selectedProductIds.has(p.id));
+  if (labelPrintProducts.length === 0) {
+    showToast('Produk tidak ditemukan', 'error');
+    return;
+  }
+
+  // Load default settings
+  try {
+    const res = await window.api.settings.getAll();
+    if (res.success) {
+      const s = res.settings;
+      if (s.label_size_default) {
+        document.getElementById('labelSize').value = s.label_size_default;
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // Load printers
+  await loadPrinterList();
+
+  // Render product rows
+  renderLabelProductRows();
+
+  // Clear error
+  const errEl = document.getElementById('labelPrintError');
+  errEl.classList.add('hidden');
+
+  // Reset preview
+  document.getElementById('labelPreviewArea').innerHTML =
+    '<p style="color:#888;font-size:13px;margin:auto;">Klik "Refresh Preview" untuk melihat preview label</p>';
+
+  document.getElementById('labelPrintModal').style.display = 'flex';
+}
+
+function closeLabelPrintModal() {
+  document.getElementById('labelPrintModal').style.display = 'none';
+  labelPrintProducts = [];
+}
+
+async function loadPrinterList() {
+  const select = document.getElementById('labelPrinter');
+  select.innerHTML = '<option value="">— Gunakan printer default —</option>';
+  try {
+    const res = await window.api.printer.getAll();
+    if (res.success && res.printers.length > 0) {
+      res.printers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name + (p.isDefault ? ' (default)' : '');
+        select.appendChild(opt);
+      });
+    }
+
+    // Apply saved default printer
+    const settRes = await window.api.settings.getAll();
+    if (settRes.success && settRes.settings.label_printer_default) {
+      select.value = settRes.settings.label_printer_default;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function renderLabelProductRows() {
+  const tbody = document.getElementById('labelPrintProductsBody');
+  tbody.innerHTML = labelPrintProducts.map(p => `
+    <tr>
+      <td><code>${escapeHtml(p.barcode)}</code></td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${formatCurrency(p.selling_price)}</td>
+      <td>
+        <input
+          type="number"
+          class="label-qty-input"
+          data-id="${p.id}"
+          value="1"
+          min="1"
+          max="999"
+          style="width:80px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;text-align:center;"
+        >
+      </td>
+    </tr>
+  `).join('');
+}
+
+function getLabelQtyMap() {
+  const map = {};
+  document.querySelectorAll('.label-qty-input').forEach(input => {
+    const id = parseInt(input.dataset.id);
+    const qty = Math.max(1, parseInt(input.value) || 1);
+    map[id] = qty;
+  });
+  return map;
+}
+
+function renderLabelPreview() {
+  const size = document.getElementById('labelSize').value;
+  const qtyMap = getLabelQtyMap();
+  const previewArea = document.getElementById('labelPreviewArea');
+
+  const SIZE_CFG = {
+    '3x2':   { w: '84px',  h: '57px',  bw: 0.9, bh: 20, fs: 7 },
+    '4x2.5': { w: '113px', h: '71px',  bw: 1.1, bh: 27, fs: 8 },
+    '5x3':   { w: '142px', h: '85px',  bw: 1.4, bh: 35, fs: 9 },
+    '6x4':   { w: '170px', h: '113px', bw: 1.7, bh: 45, fs: 10 },
+    '8x5':   { w: '227px', h: '142px', bw: 2.2, bh: 58, fs: 11 }
+  };
+
+  const cfg = SIZE_CFG[size] || SIZE_CFG['4x2.5'];
+  previewArea.innerHTML = '';
+
+  let totalLabels = 0;
+  labelPrintProducts.forEach(p => {
+    const qty = qtyMap[p.id] || 1;
+    totalLabels += qty;
+    const showQty = Math.min(qty, 3); // preview maks 3 per produk
+
+    for (let i = 0; i < showQty; i++) {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = `
+        width:${cfg.w};height:${cfg.h};
+        border:1px dashed #aaa;border-radius:3px;
+        display:flex;flex-direction:column;
+        align-items:center;justify-content:center;
+        padding:3px;background:#fff;overflow:hidden;
+        flex-shrink:0;
+      `;
+
+      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      wrap.appendChild(svgEl);
+
+      const nameEl = document.createElement('div');
+      nameEl.style.cssText = `font-size:${cfg.fs}px;font-weight:700;text-align:center;line-height:1.2;word-break:break-word;max-width:100%;margin-top:2px;`;
+      nameEl.textContent = p.name.length > 20 ? p.name.slice(0, 19) + '…' : p.name;
+      wrap.appendChild(nameEl);
+
+      const priceEl = document.createElement('div');
+      priceEl.style.cssText = `font-size:${cfg.fs}px;font-weight:700;text-align:center;margin-top:1px;`;
+      priceEl.textContent = 'Rp ' + Number(p.selling_price).toLocaleString('id-ID');
+      wrap.appendChild(priceEl);
+
+      previewArea.appendChild(wrap);
+
+      try {
+        JsBarcode(svgEl, p.barcode, {
+          format: 'CODE128',
+          width: cfg.bw,
+          height: cfg.bh,
+          displayValue: true,
+          fontSize: cfg.fs,
+          margin: 1,
+          textMargin: 1
+        });
+      } catch (e) {
+        svgEl.remove();
+        const errEl = document.createElement('div');
+        errEl.style.cssText = `font-size:${cfg.fs}px;color:#dc2626;text-align:center;`;
+        errEl.textContent = p.barcode;
+        wrap.insertBefore(errEl, nameEl);
+      }
+    }
+
+    if (qty > 3) {
+      const moreEl = document.createElement('div');
+      moreEl.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:12px;color:#6b7280;padding:8px;';
+      moreEl.textContent = `+${qty - 3} lagi`;
+      previewArea.appendChild(moreEl);
+    }
+  });
+
+  if (totalLabels === 0) {
+    previewArea.innerHTML = '<p style="color:#888;font-size:13px;margin:auto;">Belum ada produk</p>';
+  }
+}
+
+function doLabelPrint() {
+  const size = document.getElementById('labelSize').value;
+  const printer = document.getElementById('labelPrinter').value;
+  const qtyMap = getLabelQtyMap();
+
+  const errEl = document.getElementById('labelPrintError');
+  errEl.classList.add('hidden');
+
+  const products = labelPrintProducts.map(p => ({
+    id: p.id,
+    barcode: p.barcode,
+    name: p.name,
+    selling_price: p.selling_price
+  }));
+
+  if (products.length === 0) {
+    errEl.textContent = 'Tidak ada produk yang dipilih.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  window.api.window.openBarcodeLabel({
+    products,
+    qty: qtyMap,
+    size,
+    printer: printer || null,
+    autoPrint: false
+  });
+
+  closeLabelPrintModal();
+  showToast('Window cetak label dibuka', 'success');
 }

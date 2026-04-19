@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 
 let mainWindow;
 let currentUser = null;
+let pendingLabelPrintData = null;
 
 // Import database functions
 const dbModule = require('./database/db');
@@ -2752,6 +2753,40 @@ ipcMain.handle('finance:getTopProducts', async (event, filters = {}) => {
   }
 });
 
+// ============================================
+// PRINTER IPC HANDLERS
+// ============================================
+
+ipcMain.handle('printer:getAll', async () => {
+  try {
+    const printers = await mainWindow.webContents.getPrintersAsync();
+    return { success: true, printers };
+  } catch (error) {
+    console.error('printer:getAll error:', error);
+    return { success: true, printers: [] };
+  }
+});
+
+ipcMain.handle('labelPrint:getData', () => {
+  return pendingLabelPrintData;
+});
+
+// Open barcode label print window
+ipcMain.on('window:openBarcodeLabel', (event, data) => {
+  pendingLabelPrintData = data;
+  const labelWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    title: 'Cetak Label Barcode'
+  });
+  labelWindow.loadFile(path.join(__dirname, 'src/views/barcode-label.html'));
+});
+
 // Open receipt window
 ipcMain.on('window:openReceipt', (event, transactionId) => {
   const receiptWindow = new BrowserWindow({
@@ -3128,7 +3163,9 @@ ipcMain.handle('settings:reset', async () => {
       ['receipt_footer', 'Terima Kasih - Barang yang sudah dibeli tidak dapat ditukar'],
       ['auto_backup', '1'],
       ['backup_days', '7'],
-      ['store_logo', '']
+      ['store_logo', ''],
+      ['label_size_default', '4x2.5'],
+      ['label_printer_default', '']
     ];
     defaults.forEach(([key, value]) => {
       dbModule.run(

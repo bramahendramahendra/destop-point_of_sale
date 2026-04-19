@@ -267,6 +267,42 @@
         </div>
 
         <!-- ========================
+             SECTION: LABEL BARCODE
+             ======================== -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">🏷️</span>
+            <h3>Label Barcode</h3>
+          </div>
+          <div class="settings-card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Ukuran Label Default</label>
+                <select id="labelSizeDefault" class="form-control">
+                  <option value="3x2">3 × 2 cm (kecil)</option>
+                  <option value="4x2.5">4 × 2.5 cm (standar)</option>
+                  <option value="5x3">5 × 3 cm (sedang)</option>
+                  <option value="6x4">6 × 4 cm (besar)</option>
+                  <option value="8x5">8 × 5 cm (jumbo)</option>
+                </select>
+                <small class="form-text">Ukuran ini akan dipilih secara otomatis saat membuka dialog cetak label.</small>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Printer Label Default</label>
+                <select id="labelPrinterDefault" class="form-control">
+                  <option value="">— Gunakan printer default sistem —</option>
+                </select>
+                <small class="form-text">Printer yang dipilih otomatis saat mencetak label barcode.</small>
+              </div>
+            </div>
+            <div class="info-box">
+              <span>ℹ️</span>
+              Cetak label barcode tersedia di menu <strong>Manajemen Produk</strong>. Klik ikon 🏷️ pada baris produk untuk cetak 1 label, atau centang beberapa produk lalu klik "Cetak Label Terpilih" untuk cetak massal.
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================
              SECTION: INFO APLIKASI
              ======================== -->
         <div class="settings-card">

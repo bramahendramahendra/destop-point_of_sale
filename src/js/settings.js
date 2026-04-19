@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   loadSettings();
+  loadPrinterListForSettings();
   setupEventListeners();
 });
 
@@ -72,6 +73,19 @@ function applySettingsToForm(s) {
   // Stock notification (default: enabled)
   const stockNotif = s.stock_notification_enabled !== '0';
   document.getElementById('stockNotificationEnabled').checked = stockNotif;
+
+  // Label barcode
+  if (s.label_size_default) {
+    const sizeEl = document.getElementById('labelSizeDefault');
+    if (sizeEl) sizeEl.value = s.label_size_default;
+  }
+  if (s.label_printer_default) {
+    const printerEl = document.getElementById('labelPrinterDefault');
+    if (printerEl) {
+      // Set after printer list is loaded
+      printerEl.dataset.savedValue = s.label_printer_default;
+    }
+  }
 
   // Logo
   if (s.store_logo && s.store_logo.length > 0) {
@@ -274,7 +288,9 @@ async function handleSaveSettings() {
     auto_backup:    document.getElementById('autoBackup').checked ? '1' : '0',
     backup_days:    String(backupDays),
     store_logo:                  logoBase64,
-    stock_notification_enabled:  document.getElementById('stockNotificationEnabled').checked ? '1' : '0'
+    stock_notification_enabled:  document.getElementById('stockNotificationEnabled').checked ? '1' : '0',
+    label_size_default:    document.getElementById('labelSizeDefault')?.value    || '4x2.5',
+    label_printer_default: document.getElementById('labelPrinterDefault')?.value || ''
   };
 
   showLoading('Menyimpan pengaturan...');
@@ -406,4 +422,36 @@ function showLoading(text) {
 function hideLoading() {
   const overlay = document.getElementById('loadingOverlay');
   if (overlay) overlay.style.display = 'none';
+}
+
+// ============================================
+// PRINTER LIST FOR SETTINGS
+// ============================================
+
+async function loadPrinterListForSettings() {
+  const select = document.getElementById('labelPrinterDefault');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">— Gunakan printer default sistem —</option>';
+
+  try {
+    const res = await window.api.printer.getAll();
+    if (res.success && res.printers.length > 0) {
+      res.printers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name + (p.isDefault ? ' (default)' : '');
+        select.appendChild(opt);
+      });
+    }
+
+    // Restore saved value after list is populated
+    const saved = select.dataset.savedValue;
+    if (saved) {
+      select.value = saved;
+      delete select.dataset.savedValue;
+    }
+  } catch (e) {
+    console.error('loadPrinterListForSettings error:', e);
+  }
 }

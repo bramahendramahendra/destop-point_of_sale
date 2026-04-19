@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cetak Label Barcode</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .print-controls {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .print-controls h3 {
+      font-size: 14px;
+      color: #333;
+      margin-right: auto;
+    }
+
+    .btn-print {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-print:hover { background: #1d4ed8; }
+
+    .btn-close {
+      background: #6b7280;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .labels-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .label-item {
+      background: #fff;
+      border: 1px dashed #999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+
+    .label-item svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .label-name {
+      font-size: 9px;
+      font-weight: 700;
+      text-align: center;
+      margin-top: 2px;
+      line-height: 1.2;
+      word-break: break-word;
+      max-width: 100%;
+    }
+
+    .label-price {
+      font-size: 9px;
+      font-weight: 700;
+      text-align: center;
+      margin-top: 1px;
+    }
+
+    .error-msg {
+      text-align: center;
+      color: #dc2626;
+      padding: 40px;
+      font-size: 16px;
+    }
+
+    /* ===== PRINT STYLES ===== */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .print-controls { display: none; }
+      .labels-container { gap: 0; }
+      .label-item { border: 1px solid #000; margin: 1mm; }
+    }
+
+    /* Size variants */
+    .label-3x2   { width: 3cm;   height: 2cm; }
+    .label-5x3   { width: 5cm;   height: 3cm; }
+    .label-4x2-5 { width: 4cm;   height: 2.5cm; }
+    .label-6x4   { width: 6cm;   height: 4cm; }
+    .label-8x5   { width: 8cm;   height: 5cm; }
+  </style>
+</head>
+<body>
+  <div class="print-controls">
+    <h3 id="labelInfo">Label Barcode</h3>
+    <button class="btn-print" onclick="window.print()">🖨️ Cetak</button>
+    <button class="btn-close" onclick="window.close()">✕ Tutup</button>
+  </div>
+
+  <div class="labels-container" id="labelsContainer">
+    <p class="error-msg">Memuat data label...</p>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    const SIZE_CONFIG = {
+      '3x2':   { cssClass: 'label-3x2',   barcodeWidth: 1.2, barcodeHeight: 25, fontSize: 8 },
+      '5x3':   { cssClass: 'label-5x3',   barcodeWidth: 1.8, barcodeHeight: 40, fontSize: 10 },
+      '4x2.5': { cssClass: 'label-4x2-5', barcodeWidth: 1.5, barcodeHeight: 32, fontSize: 9 },
+      '6x4':   { cssClass: 'label-6x4',   barcodeWidth: 2.0, barcodeHeight: 50, fontSize: 11 },
+      '8x5':   { cssClass: 'label-8x5',   barcodeWidth: 2.5, barcodeHeight: 65, fontSize: 12 }
+    };
+
+    function formatRupiah(num) {
+      return 'Rp ' + Number(num).toLocaleString('id-ID');
+    }
+
+    function truncate(str, max) {
+      return str.length > max ? str.slice(0, max - 1) + '…' : str;
+    }
+
+    function renderLabels(data) {
+      const { products, qty, size } = data;
+      const cfg = SIZE_CONFIG[size] || SIZE_CONFIG['4x2.5'];
+      const container = document.getElementById('labelsContainer');
+      container.innerHTML = '';
+
+      let totalLabels = 0;
+
+      products.forEach(product => {
+        const count = qty[product.id] || 1;
+        totalLabels += count;
+
+        for (let i = 0; i < count; i++) {
+          const div = document.createElement('div');
+          div.className = `label-item ${cfg.cssClass}`;
+
+          const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          div.appendChild(svgEl);
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 'label-name';
+          nameEl.textContent = truncate(product.name, 24);
+          div.appendChild(nameEl);
+
+          const priceEl = document.createElement('div');
+          priceEl.className = 'label-price';
+          priceEl.textContent = formatRupiah(product.selling_price);
+          div.appendChild(priceEl);
+
+          container.appendChild(div);
+
+          try {
+            JsBarcode(svgEl, product.barcode, {
+              format: 'CODE128',
+              width: cfg.barcodeWidth,
+              height: cfg.barcodeHeight,
+              displayValue: true,
+              fontSize: cfg.fontSize,
+              margin: 2,
+              textMargin: 1
+            });
+          } catch (e) {
+            svgEl.remove();
+            const errEl = document.createElement('div');
+            errEl.style.cssText = 'font-size:8px;color:red;text-align:center;';
+            errEl.textContent = product.barcode;
+            div.insertBefore(errEl, nameEl);
+          }
+        }
+      });
+
+      document.getElementById('labelInfo').textContent =
+        `Label Barcode — ${products.length} produk, ${totalLabels} label, ukuran ${size} cm`;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const data = await window.api.labelPrint.getData();
+        if (!data || !data.products || data.products.length === 0) {
+          document.getElementById('labelsContainer').innerHTML =
+            '<p class="error-msg">Tidak ada data label untuk dicetak.</p>';
+          return;
+        }
+        renderLabels(data);
+
+        if (data.autoPrint) {
+          setTimeout(() => window.print(), 600);
+        }
+      } catch (e) {
+        console.error('labelPrint error:', e);
+        document.getElementById('labelsContainer').innerHTML =
+          '<p class="error-msg">Gagal memuat data label.</p>';
+      }
+    });
+  </script>
+</body>
+</html>
