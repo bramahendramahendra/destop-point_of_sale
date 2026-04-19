@@ -591,6 +591,11 @@ textarea:focus {
   color: #7f8c8d;
 }
 
+.badge-info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
 /* Role Badges */
 .badge-role {
   text-transform: capitalize;

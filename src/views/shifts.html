@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Shift - POS Retail</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="dashboard-page">
+  <!-- Navbar -->
+  <nav class="navbar"></nav>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <h1>🕐 Manajemen Shift</h1>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btnAddShift">➕ Tambah Shift</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="shiftsTable">
+          <thead>
+            <tr>
+              <th>Nama Shift</th>
+              <th>Jam Mulai</th>
+              <th>Jam Selesai</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="shiftsTableBody">
+            <tr>
+              <td colspan="5" class="text-center">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Add/Edit Shift -->
+  <div id="shiftModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="shiftModalTitle">Tambah Shift</h2>
+        <button class="modal-close" id="closeShiftModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="shiftForm">
+          <input type="hidden" id="shiftId">
+
+          <div class="form-group">
+            <label for="shiftName">Nama Shift <span class="required">*</span></label>
+            <input type="text" id="shiftName" placeholder="Contoh: Shift Pagi" maxlength="50" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="shiftStartTime">Jam Mulai <span class="required">*</span></label>
+              <input type="time" id="shiftStartTime" required>
+            </div>
+            <div class="form-group">
+              <label for="shiftEndTime">Jam Selesai <span class="required">*</span></label>
+              <input type="time" id="shiftEndTime" required>
+            </div>
+          </div>
+
+          <div id="shiftFormError" class="error-message hidden"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelShift">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitShift">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/menu.js"></script>
+  <script src="../js/notification.js"></script>
+  <script src="../js/shifts.js"></script>
+</body>
+</html>

@@ -118,6 +118,16 @@ contextBridge.exposeInMainWorld('api', {
     pay: (receivableId, paymentData) => ipcRenderer.invoke('receivables:pay', receivableId, paymentData),
     getPayments: (receivableId) => ipcRenderer.invoke('receivables:getPayments', receivableId)
   },
+  shifts: {
+    getAll: () => ipcRenderer.invoke('shifts:getAll'),
+    getActive: () => ipcRenderer.invoke('shifts:getActive'),
+    getById: (id) => ipcRenderer.invoke('shifts:getById', id),
+    create: (data) => ipcRenderer.invoke('shifts:create', data),
+    update: (id, data) => ipcRenderer.invoke('shifts:update', id, data),
+    delete: (id) => ipcRenderer.invoke('shifts:delete', id),
+    toggleStatus: (id) => ipcRenderer.invoke('shifts:toggleStatus', id),
+    getSummary: (filters) => ipcRenderer.invoke('shifts:getSummary', filters)
+  },
   finance: {
     getDashboard: (filters) => ipcRenderer.invoke('finance:getDashboard', filters),
     getTopProducts: (filters) => ipcRenderer.invoke('finance:getTopProducts', filters)

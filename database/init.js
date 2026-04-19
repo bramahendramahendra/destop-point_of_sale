@@ -291,6 +291,21 @@ async function initDatabase() {
   run(createSupplierReturnItemsTable);
   console.log('Supplier return items table created successfully');
 
+  // Create shifts table
+  const createShiftsTable = `
+    CREATE TABLE IF NOT EXISTS shifts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  run(createShiftsTable);
+  console.log('Shifts table created successfully');
+
   // Create units table
   const createUnitsTable = `
     CREATE TABLE IF NOT EXISTS units (
@@ -411,6 +426,18 @@ async function initDatabase() {
     console.error('Migration error (transactions):', e);
   }
 
+  // Migration: add shift_id to cash_drawer if not exists
+  try {
+    const cdCols = query('PRAGMA table_info(cash_drawer)');
+    const cdColNames = cdCols.map(r => r.name);
+    if (!cdColNames.includes('shift_id')) {
+      run('ALTER TABLE cash_drawer ADD COLUMN shift_id INTEGER REFERENCES shifts(id)');
+      console.log('Migration: added shift_id to cash_drawer');
+    }
+  } catch (e) {
+    console.error('Migration error (cash_drawer shift_id):', e);
+  }
+
   // Migration: add conversion_qty and unit_id to transaction_items if not exists
   try {
     const tiCols = query('PRAGMA table_info(transaction_items)');
@@ -447,6 +474,20 @@ async function initDatabase() {
       run('INSERT INTO units (name, abbreviation) VALUES (?, ?)', [name, abbreviation]);
     });
     console.log('Default units seeded');
+  }
+
+  // Seed default shifts if not exist
+  const shiftsExist = get('SELECT id FROM shifts LIMIT 1');
+  if (!shiftsExist) {
+    const defaultShifts = [
+      ['Shift Pagi', '07:00', '14:00'],
+      ['Shift Siang', '14:00', '21:00'],
+      ['Shift Malam', '21:00', '07:00']
+    ];
+    defaultShifts.forEach(([name, start_time, end_time]) => {
+      run('INSERT INTO shifts (name, start_time, end_time) VALUES (?, ?, ?)', [name, start_time, end_time]);
+    });
+    console.log('Default shifts seeded');
   }
 
   // Check if admin user exists

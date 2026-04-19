@@ -25,6 +25,7 @@
         <div class="tabs">
           <button class="tab-button active" data-tab="dashboard">Dashboard Keuangan</button>
           <button class="tab-button" data-tab="cash-drawer">Kas Harian</button>
+          <button class="tab-button" data-tab="shift-summary">Ringkasan Shift</button>
           <button class="tab-button" data-tab="expenses">Pengeluaran</button>
           <button class="tab-button" data-tab="purchases">Pembelian</button>
           <button class="tab-button" data-tab="supplier-returns">Retur Supplier</button>
@@ -139,6 +140,9 @@
           <div class="filter-group">
             <input type="date" id="cashFilterStartDate" class="filter-input">
             <input type="date" id="cashFilterEndDate" class="filter-input">
+            <select id="cashFilterShift" class="filter-select">
+              <option value="">Semua Shift</option>
+            </select>
             <button class="btn btn-secondary" id="btnApplyCashFilter">Filter</button>
           </div>
         </div>
@@ -149,6 +153,7 @@
               <tr>
                 <th>Tanggal</th>
                 <th>Kasir</th>
+                <th>Shift</th>
                 <th>Saldo Awal</th>
                 <th>Penjualan Cash</th>
                 <th>Pengeluaran</th>
@@ -161,10 +166,34 @@
             </thead>
             <tbody id="cashDrawerTableBody">
               <tr>
-                <td colspan="10" class="text-center">Loading...</td>
+                <td colspan="11" class="text-center">Loading...</td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Tab Content: Ringkasan Shift -->
+      <div id="shift-summary-tab" class="tab-content">
+        <div class="filters-container">
+          <div class="filter-group filter-group--with-label">
+            <div class="form-group">
+              <label>Dari Tanggal</label>
+              <input type="date" id="shiftSummaryStartDate" class="filter-input">
+            </div>
+            <div class="form-group">
+              <label>Sampai Tanggal</label>
+              <input type="date" id="shiftSummaryEndDate" class="filter-input">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" id="btnApplyShiftSummaryFilter">🔍 Filter</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="shiftSummaryContainer">
+          <p class="text-center">Loading...</p>
         </div>
       </div>
 

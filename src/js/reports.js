@@ -558,6 +558,9 @@ async function filterCashierReport() {
     renderCashierCards(res.cashierStats);
     renderCashierBarChart(res.cashierStats);
     renderCashierRankTable(res.cashierStats);
+    await loadCashierShiftBreakdown(
+      filters.startDate, filters.endDate, filters.userId
+    );
   } catch (e) {
     console.error('filterCashierReport error:', e);
     Toast.error('Terjadi kesalahan saat memuat laporan kasir');
@@ -673,6 +676,94 @@ function renderCashierRankTable(stats) {
       </td>
     </tr>
   `).join('');
+}
+
+// ============================================
+// CASHIER SHIFT BREAKDOWN
+// ============================================
+
+async function loadCashierShiftBreakdown(startDate, endDate, userId) {
+  const container = document.getElementById('cashierShiftBreakdown');
+  if (!container) return;
+
+  try {
+    const result = await window.api.shifts.getSummary({ startDate, endDate });
+    if (!result.success || !result.summary.length) {
+      container.innerHTML = '';
+      return;
+    }
+
+    // Also get cash history for this user/period to match
+    const cashResult = await window.api.cashDrawer.getHistory({
+      startDate, endDate,
+      userId: userId || null
+    });
+
+    const sessions = cashResult.success ? cashResult.history : [];
+
+    // Group sessions by shift
+    const byShift = {};
+    sessions.forEach(s => {
+      const key = s.shift_id || 0;
+      if (!byShift[key]) {
+        byShift[key] = {
+          shift_name: s.shift_name || 'Tanpa Shift',
+          shift_start: s.shift_start || '',
+          shift_end: s.shift_end || '',
+          sessions: 0,
+          total_cash_sales: 0,
+          total_expenses: 0,
+          total_difference: 0
+        };
+      }
+      byShift[key].sessions++;
+      byShift[key].total_cash_sales += s.total_cash_sales || 0;
+      byShift[key].total_expenses += s.total_expenses || 0;
+      byShift[key].total_difference += (s.difference || 0);
+    });
+
+    const rows = Object.values(byShift);
+    if (!rows.length) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="report-section">
+        <h3 class="section-title">Breakdown Per Shift</h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Shift</th>
+                <th>Jam</th>
+                <th>Sesi Kas</th>
+                <th>Penjualan Cash</th>
+                <th>Pengeluaran</th>
+                <th>Selisih Kas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td><strong>${escapeHtml(r.shift_name)}</strong></td>
+                  <td>${r.shift_start ? `${r.shift_start} - ${r.shift_end}` : '-'}</td>
+                  <td>${r.sessions}</td>
+                  <td class="text-success">${formatCurrency(r.total_cash_sales)}</td>
+                  <td class="text-danger">${formatCurrency(r.total_expenses)}</td>
+                  <td class="${r.total_difference === 0 ? 'text-success' : r.total_difference > 0 ? 'text-warning' : 'text-danger'}">
+                    ${formatCurrency(r.total_difference)}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('loadCashierShiftBreakdown error:', error);
+  }
 }
 
 // ============================================

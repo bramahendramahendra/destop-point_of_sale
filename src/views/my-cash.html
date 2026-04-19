@@ -46,6 +46,7 @@
           <thead>
             <tr>
               <th>Tanggal</th>
+              <th>Shift</th>
               <th>Saldo Awal</th>
               <th>Penjualan Cash</th>
               <th>Pengeluaran</th>
@@ -58,7 +59,7 @@
           </thead>
           <tbody id="cashDrawerTableBody">
             <tr>
-              <td colspan="9" class="text-center">Loading...</td>
+              <td colspan="10" class="text-center">Loading...</td>
             </tr>
           </tbody>
         </table>
@@ -75,6 +76,14 @@
       </div>
       <div class="modal-body">
         <form id="openCashForm">
+          <div class="form-group">
+            <label for="openShiftSelect">Shift <span class="required">*</span></label>
+            <select id="openShiftSelect" required>
+              <option value="">-- Pilih Shift --</option>
+            </select>
+            <small class="form-text">Pilih shift yang berlaku untuk sesi kas ini</small>
+          </div>
+
           <div class="form-group">
             <label for="openingBalance">Saldo Awal <span class="required">*</span></label>
             <input 

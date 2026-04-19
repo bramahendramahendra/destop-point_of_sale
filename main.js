@@ -1123,11 +1123,13 @@ ipcMain.handle('cashDrawer:getCurrent', async (event) => {
     const today = new Date().toISOString().split('T')[0];
     
     const cashDrawer = dbModule.get(`
-      SELECT * FROM cash_drawer 
-      WHERE user_id = ? 
-      AND DATE(open_time) = DATE(?) 
-      AND status = 'open'
-      ORDER BY open_time DESC 
+      SELECT cd.*, s.name as shift_name, s.start_time as shift_start, s.end_time as shift_end
+      FROM cash_drawer cd
+      LEFT JOIN shifts s ON cd.shift_id = s.id
+      WHERE cd.user_id = ?
+      AND DATE(cd.open_time) = DATE(?)
+      AND cd.status = 'open'
+      ORDER BY cd.open_time DESC
       LIMIT 1
     `, [currentUser.id, today]);
     
@@ -1147,24 +1149,33 @@ ipcMain.handle('cashDrawer:open', async (event, data) => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Check if already opened today
-    const existing = dbModule.get(`
-      SELECT id FROM cash_drawer 
-      WHERE user_id = ? 
-      AND DATE(open_time) = DATE(?) 
-      AND status = 'open'
-    `, [currentUser.id, today]);
+    // Check if this user already has an open session for this shift today
+    const shiftCheck = data.shift_id
+      ? dbModule.get(`
+          SELECT id FROM cash_drawer
+          WHERE user_id = ?
+          AND shift_id = ?
+          AND DATE(open_time) = DATE(?)
+          AND status = 'open'
+        `, [currentUser.id, data.shift_id, today])
+      : dbModule.get(`
+          SELECT id FROM cash_drawer
+          WHERE user_id = ?
+          AND shift_id IS NULL
+          AND DATE(open_time) = DATE(?)
+          AND status = 'open'
+        `, [currentUser.id, today]);
 
-    if (existing) {
-      return { success: false, message: 'Kas sudah dibuka hari ini' };
+    if (shiftCheck) {
+      return { success: false, message: 'Kas untuk shift ini sudah dibuka dan masih aktif' };
     }
 
     // Insert new cash drawer
     dbModule.run(
       `INSERT INTO cash_drawer (
-        user_id, open_time, opening_balance, status, notes
-      ) VALUES (?, ?, ?, 'open', ?)`,
-      [currentUser.id, new Date().toISOString(), data.opening_balance, data.notes || '']
+        user_id, shift_id, open_time, opening_balance, status, notes
+      ) VALUES (?, ?, ?, ?, 'open', ?)`,
+      [currentUser.id, data.shift_id || null, new Date().toISOString(), data.opening_balance, data.notes || '']
     );
 
     // Get inserted cash drawer
@@ -1225,9 +1236,11 @@ ipcMain.handle('cashDrawer:close', async (event, id, data) => {
 ipcMain.handle('cashDrawer:getHistory', async (event, filters = {}) => {
   try {
     let sql = `
-      SELECT cd.*, u.full_name as cashier_name
+      SELECT cd.*, u.full_name as cashier_name,
+             s.name as shift_name, s.start_time as shift_start, s.end_time as shift_end
       FROM cash_drawer cd
       LEFT JOIN users u ON cd.user_id = u.id
+      LEFT JOIN shifts s ON cd.shift_id = s.id
       WHERE 1=1
     `;
     const params = [];
@@ -1252,6 +1265,11 @@ ipcMain.handle('cashDrawer:getHistory', async (event, filters = {}) => {
       params.push(filters.status);
     }
 
+    if (filters.shiftId) {
+      sql += ' AND cd.shift_id = ?';
+      params.push(filters.shiftId);
+    }
+
     sql += ' ORDER BY cd.open_time DESC';
 
     const history = dbModule.all(sql, params);
@@ -1267,9 +1285,11 @@ ipcMain.handle('cashDrawer:getHistory', async (event, filters = {}) => {
 ipcMain.handle('cashDrawer:getById', async (event, id) => {
   try {
     const cashDrawer = dbModule.get(`
-      SELECT cd.*, u.full_name as cashier_name
+      SELECT cd.*, u.full_name as cashier_name,
+             s.name as shift_name, s.start_time as shift_start, s.end_time as shift_end
       FROM cash_drawer cd
       LEFT JOIN users u ON cd.user_id = u.id
+      LEFT JOIN shifts s ON cd.shift_id = s.id
       WHERE cd.id = ?
     `, [id]);
 
@@ -3509,5 +3529,138 @@ ipcMain.handle('receivables:getPayments', async (event, receivableId) => {
   } catch (error) {
     console.error('receivables:getPayments error:', error);
     return { success: false, message: 'Gagal memuat riwayat pembayaran' };
+  }
+});
+// ============================================
+// SHIFTS MANAGEMENT IPC HANDLERS
+// ============================================
+
+ipcMain.handle('shifts:getAll', async (event) => {
+  try {
+    const shifts = dbModule.all('SELECT * FROM shifts ORDER BY start_time ASC');
+    return { success: true, shifts };
+  } catch (error) {
+    console.error('shifts:getAll error:', error);
+    return { success: false, message: 'Gagal memuat data shift' };
+  }
+});
+
+ipcMain.handle('shifts:getActive', async (event) => {
+  try {
+    const shifts = dbModule.all('SELECT * FROM shifts WHERE is_active = 1 ORDER BY start_time ASC');
+    return { success: true, shifts };
+  } catch (error) {
+    console.error('shifts:getActive error:', error);
+    return { success: false, message: 'Gagal memuat data shift' };
+  }
+});
+
+ipcMain.handle('shifts:getById', async (event, id) => {
+  try {
+    const shift = dbModule.get('SELECT * FROM shifts WHERE id = ?', [id]);
+    if (!shift) return { success: false, message: 'Shift tidak ditemukan' };
+    return { success: true, shift };
+  } catch (error) {
+    console.error('shifts:getById error:', error);
+    return { success: false, message: 'Gagal memuat data shift' };
+  }
+});
+
+ipcMain.handle('shifts:create', async (event, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM shifts WHERE name = ?', [data.name]);
+    if (existing) return { success: false, message: 'Nama shift sudah digunakan' };
+
+    dbModule.run(
+      `INSERT INTO shifts (name, start_time, end_time, is_active) VALUES (?, ?, ?, 1)`,
+      [data.name, data.start_time, data.end_time]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('shifts:create error:', error);
+    return { success: false, message: 'Gagal menambahkan shift' };
+  }
+});
+
+ipcMain.handle('shifts:update', async (event, id, data) => {
+  try {
+    const existing = dbModule.get('SELECT id FROM shifts WHERE name = ? AND id != ?', [data.name, id]);
+    if (existing) return { success: false, message: 'Nama shift sudah digunakan' };
+
+    dbModule.run(
+      `UPDATE shifts SET name = ?, start_time = ?, end_time = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [data.name, data.start_time, data.end_time, id]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('shifts:update error:', error);
+    return { success: false, message: 'Gagal mengupdate shift' };
+  }
+});
+
+ipcMain.handle('shifts:delete', async (event, id) => {
+  try {
+    const used = dbModule.get('SELECT id FROM cash_drawer WHERE shift_id = ? LIMIT 1', [id]);
+    if (used) return { success: false, message: 'Shift tidak dapat dihapus karena sudah digunakan' };
+
+    dbModule.run('DELETE FROM shifts WHERE id = ?', [id]);
+    return { success: true };
+  } catch (error) {
+    console.error('shifts:delete error:', error);
+    return { success: false, message: 'Gagal menghapus shift' };
+  }
+});
+
+ipcMain.handle('shifts:toggleStatus', async (event, id) => {
+  try {
+    dbModule.run(
+      `UPDATE shifts SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END,
+       updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [id]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('shifts:toggleStatus error:', error);
+    return { success: false, message: 'Gagal mengubah status shift' };
+  }
+});
+
+// Shift summary for finance page
+ipcMain.handle('shifts:getSummary', async (event, filters = {}) => {
+  try {
+    let sql = `
+      SELECT
+        s.id as shift_id,
+        s.name as shift_name,
+        s.start_time,
+        s.end_time,
+        COUNT(cd.id) as session_count,
+        SUM(cd.total_cash_sales) as total_cash_sales,
+        SUM(cd.total_sales) as total_sales,
+        SUM(cd.total_expenses) as total_expenses,
+        SUM(COALESCE(cd.closing_balance, 0) - COALESCE(cd.expected_balance, 0)) as total_difference
+      FROM shifts s
+      LEFT JOIN cash_drawer cd ON cd.shift_id = s.id
+    `;
+    const params = [];
+    const where = [];
+
+    if (filters.startDate) {
+      where.push('DATE(cd.open_time) >= DATE(?)');
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      where.push('DATE(cd.open_time) <= DATE(?)');
+      params.push(filters.endDate);
+    }
+    if (where.length) sql += ' WHERE ' + where.join(' AND ');
+
+    sql += ' GROUP BY s.id, s.name, s.start_time, s.end_time ORDER BY s.start_time ASC';
+
+    const summary = dbModule.all(sql, params);
+    return { success: true, summary };
+  } catch (error) {
+    console.error('shifts:getSummary error:', error);
+    return { success: false, message: 'Gagal memuat ringkasan shift' };
   }
 });

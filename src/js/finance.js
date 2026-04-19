@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load initial data
   await loadSuppliersDropdown();
+  await loadShiftsFilterDropdown();
   await loadDashboard();
   await loadProducts();
   await checkCurrentCashDrawer();
@@ -63,6 +64,7 @@ function setupEventListeners() {
 
   // Cash drawer
   document.getElementById('btnApplyCashFilter').addEventListener('click', loadCashDrawerHistory);
+  document.getElementById('btnApplyShiftSummaryFilter').addEventListener('click', loadShiftSummary);
   document.getElementById('closeOpenCashModal').addEventListener('click', closeOpenCashModal);
   document.getElementById('btnCancelOpenCash').addEventListener('click', closeOpenCashModal);
   document.getElementById('openCashForm').addEventListener('submit', handleOpenCash);
@@ -153,6 +155,8 @@ function switchTab(tabName) {
     loadExpenses();
   } else if (tabName === 'purchases') {
     loadPurchases();
+  } else if (tabName === 'shift-summary') {
+    loadShiftSummary();
   } else if (tabName === 'supplier-returns') {
     loadReturnSupplierFilter();
     loadReturns();
@@ -348,7 +352,8 @@ async function loadCashDrawerHistory() {
   try {
     const filters = {
       startDate: document.getElementById('cashFilterStartDate').value,
-      endDate: document.getElementById('cashFilterEndDate').value
+      endDate: document.getElementById('cashFilterEndDate').value,
+      shiftId: document.getElementById('cashFilterShift').value || null
     };
 
     // Set default to last 30 days if empty
@@ -380,7 +385,7 @@ function renderCashDrawerTable(cashDrawers) {
   if (cashDrawers.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="10" class="text-center">Tidak ada data kas</td>
+        <td colspan="11" class="text-center">Tidak ada data kas</td>
       </tr>
     `;
     return;
@@ -393,6 +398,11 @@ function renderCashDrawerTable(cashDrawers) {
         <small>${formatTimeOnly(cash.open_time)}</small>
       </td>
       <td>${escapeHtml(cash.cashier_name)}</td>
+      <td>
+        ${cash.shift_name
+          ? `<span class="badge badge-info">${escapeHtml(cash.shift_name)}</span>`
+          : '<span class="text-muted">-</span>'}
+      </td>
       <td>${formatCurrency(cash.opening_balance)}</td>
       <td>${formatCurrency(cash.total_cash_sales)}</td>
       <td>${formatCurrency(cash.total_expenses)}</td>
@@ -728,6 +738,108 @@ function displayCashDrawerDetail(cashDrawer) {
 
 function closeDetailCashModal() {
   document.getElementById('detailCashModal').style.display = 'none';
+}
+
+// ============================================
+// SHIFTS FILTER & SUMMARY
+// ============================================
+
+async function loadShiftsFilterDropdown() {
+  try {
+    const result = await window.api.shifts.getAll();
+    if (!result.success) return;
+
+    const select = document.getElementById('cashFilterShift');
+    if (!select) return;
+    result.shifts.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.name} (${s.start_time}-${s.end_time})`;
+      select.appendChild(opt);
+    });
+  } catch (error) {
+    console.error('loadShiftsFilterDropdown error:', error);
+  }
+}
+
+async function loadShiftSummary() {
+  const container = document.getElementById('shiftSummaryContainer');
+  container.innerHTML = '<p class="text-center">Loading...</p>';
+
+  try {
+    let startDate = document.getElementById('shiftSummaryStartDate').value;
+    let endDate = document.getElementById('shiftSummaryEndDate').value;
+
+    if (!startDate || !endDate) {
+      const range = getCurrentMonthRange();
+      document.getElementById('shiftSummaryStartDate').value = range.startDate;
+      document.getElementById('shiftSummaryEndDate').value = range.endDate;
+      startDate = range.startDate;
+      endDate = range.endDate;
+    }
+
+    const result = await window.api.shifts.getSummary({ startDate, endDate });
+
+    if (!result.success) {
+      container.innerHTML = '<p class="text-center text-danger">Gagal memuat ringkasan shift</p>';
+      return;
+    }
+
+    const summary = result.summary;
+
+    if (summary.length === 0) {
+      container.innerHTML = '<p class="text-center">Tidak ada data shift untuk periode ini</p>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Shift</th>
+              <th>Jam Operasional</th>
+              <th>Jumlah Sesi</th>
+              <th>Total Penjualan</th>
+              <th>Total Pengeluaran</th>
+              <th>Total Penjualan Cash</th>
+              <th>Total Selisih Kas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summary.map(row => {
+              const diff = row.total_difference || 0;
+              return `
+                <tr>
+                  <td><strong>${escapeHtml(row.shift_name)}</strong></td>
+                  <td>${row.start_time} - ${row.end_time}</td>
+                  <td>${row.session_count || 0}</td>
+                  <td class="text-success">${formatCurrency(row.total_sales || 0)}</td>
+                  <td class="text-danger">${formatCurrency(row.total_expenses || 0)}</td>
+                  <td>${formatCurrency(row.total_cash_sales || 0)}</td>
+                  <td class="${diff === 0 ? 'text-success' : diff > 0 ? 'text-warning' : 'text-danger'}">
+                    ${formatCurrency(diff)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td colspan="3"><strong>Total</strong></td>
+              <td class="text-success"><strong>${formatCurrency(summary.reduce((s,r) => s + (r.total_sales||0), 0))}</strong></td>
+              <td class="text-danger"><strong>${formatCurrency(summary.reduce((s,r) => s + (r.total_expenses||0), 0))}</strong></td>
+              <td><strong>${formatCurrency(summary.reduce((s,r) => s + (r.total_cash_sales||0), 0))}</strong></td>
+              <td><strong>${formatCurrency(summary.reduce((s,r) => s + (r.total_difference||0), 0))}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+  } catch (error) {
+    console.error('loadShiftSummary error:', error);
+    container.innerHTML = '<p class="text-center text-danger">Terjadi kesalahan</p>';
+  }
 }
 
 // ============================================

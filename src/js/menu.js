@@ -75,6 +75,13 @@ function renderMenu(activePage) {
       roles: ['owner', 'admin']
     },
     {
+      id: 'shifts',
+      icon: '🕐',
+      text: 'Manajemen Shift',
+      href: 'shifts.html',
+      roles: ['owner', 'admin']
+    },
+    {
       id: 'pengaturan',
       icon: '⚙️',
       text: 'Pengaturan',

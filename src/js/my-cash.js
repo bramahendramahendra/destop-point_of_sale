@@ -2,6 +2,7 @@
 let currentUser = null;
 let allCashDrawers = [];
 let currentCashDrawer = null;
+let shiftsCache = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
 
   // Load initial data
+  await loadShiftsDropdown();
   await checkCurrentCashDrawer();
   await loadMyCashHistory();
 });
@@ -64,6 +66,33 @@ function setupEventListeners() {
       }
     });
   });
+}
+
+// ============================================
+// SHIFTS
+// ============================================
+
+async function loadShiftsDropdown() {
+  try {
+    const result = await window.api.shifts.getActive();
+    if (result.success) {
+      shiftsCache = result.shifts;
+      const select = document.getElementById('openShiftSelect');
+      select.innerHTML = '<option value="">-- Pilih Shift --</option>' +
+        result.shifts.map(s =>
+          `<option value="${s.id}">${escapeHtml(s.name)} (${s.start_time} - ${s.end_time})</option>`
+        ).join('');
+    }
+  } catch (error) {
+    console.error('loadShiftsDropdown error:', error);
+  }
+}
+
+function getShiftLabel(shiftId, shiftName) {
+  if (shiftName) return shiftName;
+  if (!shiftId) return '-';
+  const s = shiftsCache.find(x => x.id === shiftId);
+  return s ? s.name : '-';
 }
 
 // ============================================
@@ -113,6 +142,11 @@ function renderCashStatus(cashDrawer) {
         <div class="status-badge badge-success">● KAS TERBUKA</div>
         
         <div class="cash-info-grid">
+          ${cashDrawer.shift_name ? `
+          <div class="cash-info-item">
+            <span class="label">Shift:</span>
+            <strong>${escapeHtml(cashDrawer.shift_name)} (${cashDrawer.shift_start} - ${cashDrawer.shift_end})</strong>
+          </div>` : ''}
           <div class="cash-info-item">
             <span class="label">Waktu Buka:</span>
             <strong>${formatTimeOnly(cashDrawer.open_time)}</strong>
@@ -204,7 +238,7 @@ function renderCashDrawerTable(cashDrawers) {
   if (cashDrawers.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" class="text-center">Tidak ada riwayat kas</td>
+        <td colspan="10" class="text-center">Tidak ada riwayat kas</td>
       </tr>
     `;
     return;
@@ -215,6 +249,11 @@ function renderCashDrawerTable(cashDrawers) {
       <td>
         <div>${formatDateOnly(cash.open_time)}</div>
         <small>${formatTimeOnly(cash.open_time)}</small>
+      </td>
+      <td>
+        ${cash.shift_name
+          ? `<span class="badge badge-info">${escapeHtml(cash.shift_name)}</span>`
+          : '<span class="text-muted">-</span>'}
       </td>
       <td>${formatCurrency(cash.opening_balance)}</td>
       <td class="text-success">${formatCurrency(cash.total_cash_sales)}</td>
@@ -249,8 +288,18 @@ function openOpenCashModal() {
   document.getElementById('openCashError').style.display = 'none';
   document.getElementById('openCashModal').style.display = 'flex';
 
+  // Pre-select shift if current time matches
+  if (shiftsCache.length > 0) {
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const matched = shiftsCache.find(s => hhmm >= s.start_time && hhmm < s.end_time);
+    if (matched) {
+      document.getElementById('openShiftSelect').value = matched.id;
+    }
+  }
+
   setTimeout(() => {
-    document.getElementById('openingBalance').focus();
+    document.getElementById('openShiftSelect').focus();
   }, 100);
 }
 
@@ -261,19 +310,28 @@ function closeOpenCashModal() {
 async function handleOpenCash(e) {
   e.preventDefault();
 
+  const shiftId = parseInt(document.getElementById('openShiftSelect').value) || null;
   const openingBalance = parseFloat(document.getElementById('openingBalance').value) || 0;
   const notes = document.getElementById('openCashNotes').value.trim();
 
-  if (openingBalance <= 0) {
-    showOpenCashError('Saldo awal harus lebih dari 0');
+  if (!shiftId) {
+    showOpenCashError('Pilih shift terlebih dahulu');
     return;
   }
 
+  if (openingBalance < 0) {
+    showOpenCashError('Saldo awal tidak boleh negatif');
+    return;
+  }
+
+  const selectedShift = shiftsCache.find(s => s.id === shiftId);
+  const shiftLabel = selectedShift ? ` (${selectedShift.name})` : '';
+
   showConfirm(
     'Konfirmasi Buka Kas',
-    `Yakin ingin membuka kas dengan saldo awal ${formatCurrency(openingBalance)}?`,
+    `Yakin ingin membuka kas${shiftLabel} dengan saldo awal ${formatCurrency(openingBalance)}?`,
     async () => {
-      await openCashDrawer({ opening_balance: openingBalance, notes });
+      await openCashDrawer({ shift_id: shiftId, opening_balance: openingBalance, notes });
     }
   );
 }
